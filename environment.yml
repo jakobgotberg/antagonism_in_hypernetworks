@@ -1,0 +1,9 @@
+name: hyper-net
+channels:
+    - conda-forge
+dependencies:
+  - python
+  - pip
+  - pip:
+    - hypernetx
+    - toponetx
