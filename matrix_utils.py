@@ -1,7 +1,16 @@
 import math
 import numpy as np
 import numpy.linalg as linalg
+import signal
     
+class Timeout(Exception):
+    pass
+def timeout_handler(signum, frame):
+    raise Timeout
+
+def e_i(n, i):
+    return np.eye(n)[:, i]
+
 def one(n):
     assert isinstance(n , int)
     assert n > 0
@@ -49,6 +58,33 @@ def convergent(B):
 def irreducible(B):
     return positive( _matrix_power_sum(B, 0, n_(B)-1) )
 
+def primitive(A, limit=10):
+    '''
+    An algorithm only checking 'primitivety' using the definition
+    exists k in N s.t. A^k > 0
+    might never halt, hence the 'limit'
+    '''
+    signal.signal(signal.SIGALRM, timeout_handler)
+    signal.setitimer(signal.ITIMER_REAL, limit)
+    try:
+        k = 1
+        while True:
+            B = linalg.matrix_power(A,k)
+            if (B > 0).all():
+                return True
+            k += 1
+
+    except Timeout:
+        return False
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+
+
+def averaging(A, x0, k):
+    '''
+    Returns xk = A^k x0
+    '''
+    return linalg.matrix_power(A, k) @ x0
 
 def get_random(n):
     import random
