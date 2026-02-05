@@ -6,6 +6,7 @@ dependencies:
   - pylint
   - pandas
   - scipy
+  - tldr
   - matplotlib
   - jupyterlab
   - numpy

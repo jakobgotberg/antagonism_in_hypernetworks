@@ -1,7 +1,7 @@
-import math
+import math, signal, itertools, random, copy
 import numpy as np
 import numpy.linalg as linalg
-import signal
+cp = copy.deepcopy
     
 class Timeout(Exception):
     pass
@@ -14,7 +14,10 @@ def e_i(n, i):
 def one(n):
     assert isinstance(n , int)
     assert n > 0
-    return np.array([1] * n)
+    return np.array([[1]] * n)
+
+def PI_n(n):
+    return np.eye(n) - ( (one(n)/n) @ one(n).T )
 
 def square(B):
     return True if width(B) == hight(B) else False
@@ -86,6 +89,40 @@ def averaging(A, x0, k):
     '''
     return linalg.matrix_power(A, k) @ x0
 
+def get_path_graph(n, self_loops=True):
+    r = range(n)
+    A = np.zeros((n,n))
+    for ij in itertools.product(r,r):
+        i,j = ij
+        A[i][j] = 1 if i == j or i == j-1 or j == i-1 else 0
+    return A if self_loops else A - np.diag(np.diag(A)) 
+
+def get_random_uni(n):
+    '''
+    Returns a connected graph of size n
+    Connected = irreducible for undirected graphs
+    '''
+    connected = False
+    r = range(n)
+    E = list(itertools.product(r,r))
+    E = list(itertools.filterfalse(lambda e: e[0] >= e[1], E))
+    F = cp(E)
+    while not connected:
+        E = list(itertools.filterfalse(lambda a:  random.randint(0,1), F))
+        A = adjacency_matrix(E)
+        connected = irreducible(A)
+    
+    return A
+
+def wdir(n):
+    A = np.array([
+                [0, 1, 0, 0, 0],
+                [1, 0, 0, 0, 1],
+                [0, 1, 0, 0, 1],
+                [0, 0, 1, 0, 0],
+                [1, 0, 0, 1, 0]])
+    return A
+
 def get_random(n):
     import random
     '''
@@ -115,7 +152,10 @@ def _matrix_power_sum(B, start, end):
     return S
 
 def get_n_from_E(E:list):
-    return max([e[1] for e in E])
+    '''
+    0 indexed
+    '''
+    return max([e[1] for e in E]) + 1
     
 def check_E(E):
     assert isinstance(E, list)
@@ -140,13 +180,21 @@ def degree_matrix(E:list):
         D[e[1]] += 1
     return np.diag(D)
     
+def wdir_adjacency_matrix(E:list):
+    n = max(max([e[0] for e in E]), max([e[1] for e in E])) + 1
+    A = np.zeros((n,n))
+    for e in E:
+        i, j, w = e
+        A[i][j] = w
+    return A
+
 def adjacency_matrix(E:list):
     '''
     E is the list of undirected edges, represented as tuples
     G is assumed to be connected
     '''
     check_E(E)
-    m = get_n_from_E(E)
+    n = get_n_from_E(E)
     A = np.zeros((n,n))
     for e in E:
         i, j = e
