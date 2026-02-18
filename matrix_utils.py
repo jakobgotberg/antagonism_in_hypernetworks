@@ -1,4 +1,4 @@
-import math, signal, itertools, random, copy
+import math, signal, itertools, random, copy, sys
 import numpy as np
 import numpy.linalg as linalg
 cp = copy.deepcopy
@@ -157,6 +157,7 @@ def get_n_from_E(E:list):
     '''
     return max([e[1] for e in E]) + 1
     
+
 def check_E(E):
     assert isinstance(E, list)
     assert all(isinstance(t, tuple) for t in E)
