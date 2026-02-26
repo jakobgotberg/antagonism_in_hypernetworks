@@ -7,7 +7,10 @@ def find_cycles(I):
     '''
     Go from first node in first non-zero column in I and keep going until it finds the same node, or goes through all edges.
     '''
-    # Can I use DFS with hyperedges?
+    # Can I use DFS with hyperedges in A3?
+    # Or better to look at powers of A_tilde?
+    # Or define cycles are edges connected to vertices.
+    pass
 
 
 def balanced(I):

@@ -97,29 +97,36 @@ def generate_hypergraphs(n, pr):
         except StopIteration:
             return negative_edges
 
-    for antagonism in np.arange(0.0, 1+0.2, 0.2):
-        T = np.zeros((n,n,n))
-        for node in range(n):
-            A = T[node]
-            # Iterate through all nodes, [0,n-1], assign each a signed random upper triangle.
-            B = np.triu((np.random.rand(n,n) < pr).astype(np.int8), k=1) * np.sign(np.triu(np.random.rand(n,n) - antagonism)).astype(np.int8)
-            # Zero out the i:th column and row, 
-            B[node,:] = 0
-            B[:,node] = 0
+    for antagonism in np.arange(0.0, 0.1, 0.2):
+        while True:
+            T = np.zeros((n,n,n))
+            for node in range(n):
+                A = T[node]
+                # Iterate through all nodes, [0,n-1], assign each a signed random upper triangle.
+                B = np.triu((np.random.rand(n,n) < pr).astype(np.int8), k=1) * np.sign(np.triu(np.random.rand(n,n) - antagonism)).astype(np.int8)
+                # Zero out the i:th column and row, 
+                B[node,:] = 0
+                B[:,node] = 0
 
-            # This ensures that entries made in previous iterations are not overwritten.
-            mask = (A == 0) & (B != 0)
-            if (mask == False).all():
-                # No new edges added in this iteration.
-                continue
+                # This ensures that entries made in previous iterations are not overwritten.
+                mask = (A == 0) & (B != 0)
+                if (mask == False).all():
+                    # No new edges added in this iteration.
+                    continue
 
-            # C holds the new, legal edges generated with B in its non-zero entries
-            C = np.zeros((n,n))
-            C[mask] = B[mask]
-            set_edges(T, C, node)
-            #A[mask] = B[mask]
-            #A += A.T
-            del B,C
+                # C holds the new, legal edges generated with B in its non-zero entries
+                C = np.zeros((n,n))
+                C[mask] = B[mask]
+                set_edges(T, C, node)
+                #A[mask] = B[mask]
+                #A += A.T
+                del B,C
+
+            # No isolated nodes
+            # This is for 2-order hyperedges exclusively
+            A_tilde = np.array([(_1.T @ A3).ravel() for A3 in T[:]])
+            if (abs(A_tilde) @ _1).all():
+                break
 
         assert_legal_A3(T)
         Ts.append(T)

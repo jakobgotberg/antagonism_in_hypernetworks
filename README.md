@@ -1,2 +1,3 @@
 # Msc Thesis: An analysis of antagonism in hypernetworks
-[Thesis and other files.](https://canvas.kth.se/files/folder/users_94008/Msc_Thesis)<br>
+Erdos_Renyi.py measures antagonism in random hypergraphs, using the tensor adjacency defined in Battiston et al.'s survey.<br>
+Shi_Brzozowski.py does the same for hypergraphs using the Incidence matrix.
