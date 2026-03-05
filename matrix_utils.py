@@ -201,3 +201,34 @@ def adjacency_matrix(E:list):
         i, j = e
         A[i][j] = A[j][i] = 1
     return A
+
+def get_adjacency_tensor(n, E):
+    A = np.zeros((n,n,n)) 
+    for e in E:
+        for p in itertools.permutations(e):
+            A[p[0]][p[1]][p[2]] = 1
+    return A
+
+def find_negative_cycle(A):
+    n = A.shape[0]
+
+    def DFS(E):
+        visited = [[False] * n]
+        stack = []
+    def get_edges(A):
+        E = []
+        lookup = lambda ix : A[ix[0]][ix[1]][ix[2]]
+        not_a_permutation_in_E = lambda ix : np.array([p not in E for p in itertools.permutations(ix)]).all()
+        # extract edges from A
+        g = ((i,j,k) for i,j,k in itertools.product(range(n), repeat=3) if i<j<k)
+        try:
+            while index:=next(g):
+                if lookup(index) and not_a_permutation_in_E(index):
+                    E.append(index)
+        except StopIteration:
+            pass
+        return E
+
+    E = get_edges(A)
+    return E
+

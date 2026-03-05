@@ -97,7 +97,7 @@ def generate_hypergraphs(n, pr):
         except StopIteration:
             return negative_edges
 
-    for antagonism in np.arange(0.0, 0.1, 0.2):
+    for antagonism in np.arange(0.0, 1+0.2, 0.2):
         while True:
             T = np.zeros((n,n,n))
             for node in range(n):
