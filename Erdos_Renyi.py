@@ -1,6 +1,7 @@
 import time,argparse,sys,itertools,copy
 import numpy as np
 import matrix_utils as mu
+import hypergraph_algebra as hga
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 
@@ -35,33 +36,6 @@ def assert_legal_A3(T):
 
     except StopIteration:
         pass
-
-
-def get_H(T, absolute=False):
-    '''
-    We define the degree matrix as: A2 + 1_3.T @ A3_1 + ... + 1_3.T @ A3_n
-    No pairwise connection in this program, hence A2 is the zero matrix
-    H = inv(D) @ adjacency
-    '''
-    n = T.shape[0]
-    _1 = mu.one(n)
-    A_tilde       =  np.zeros((n,n)) + np.array([(_1.T @ A3).ravel() for A3 in T[:]]) if not absolute \
-                        else np.zeros((n,n)) + np.array([(_1.T @ abs(A3)).ravel() for A3 in T[:]])
-    degree_matrix =  np.diag( (abs(A_tilde) @ _1).ravel() )
-
-    # The normalized adjacency matrix, H
-    return np.linalg.inv(degree_matrix) @ A_tilde, A_tilde
-
-
-def compute_fi(H):
-    '''
-    Find S through brute forcing all elements: s in {-1,1}^n
-    The returned value is normalized: not an integer. How can I convert it to one?
-    '''
-    n = H.shape[0]
-    _1 = mu.one(n)
-    fi = lambda S : _1.T @ (abs(H) - (S @ H @ S)) @ _1
-    return min([fi(np.diag(s)) for s in itertools.product([-1,1], repeat=n)]).ravel()
 
 
 
@@ -148,12 +122,12 @@ def main():
     for T in generate_hypergraphs(a.nodes, a.prob):
         E = np.count_nonzero(T)
         E_n = np.count_nonzero(T == -1)
-        H, A_tilde = get_H(T, a.abs)
+        H, A_tilde = hga.get_H(T, a.abs)
         algebraic_conflict = max(np.linalg.eigvals(H))
         print(f"Edges: {E}\t Negative Edges: {E_n}")
         print(f"lambda_n: {algebraic_conflict}")
-        print(f"FI: {compute_fi(H)}")
-        print(f"FI (A_tilde): {compute_fi(A_tilde)}")
+        print(f"FI: {hga.compute_fi(H)}")
+        print(f"FI (A_tilde): {hga.compute_fi(A_tilde)}")
         print()
 
 if __name__ == "__main__":

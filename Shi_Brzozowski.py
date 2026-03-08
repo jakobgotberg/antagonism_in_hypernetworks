@@ -2,18 +2,6 @@ import time,argparse,sys,itertools,copy, random
 import numpy as np
 import matrix_utils as mu
 
-
-    # Should be sorted
-def find_cycles(I):
-    '''
-    Go from first node in first non-zero column in I and keep going until it finds the same node, or goes through all edges.
-    '''
-    # Can I use DFS with hyperedges in A3?
-    # Or better to look at powers of A_tilde?
-    # Or define cycles are edges connected to vertices.
-    pass
-
-
 def balanced(I):
     '''
     A decision problem: balanced or not balanced.
@@ -113,14 +101,6 @@ def generate_hypergraphs(n, pr, edges=[2,3]):
     'pr' is the edge probability.
     '''
 
-    def connected(I):
-        # go through every pair of columns and make sure there is a link
-        m = I.shape[1]
-        done = np.array([False] * m)
-        for i in range(m):
-            j = (i+1) % m
-
-
     assert n >= 3, "n too small"
     assert pr >= 0.0, "probability must be non-negative"
     Is = []
@@ -144,6 +124,7 @@ def generate_hypergraphs(n, pr, edges=[2,3]):
             # Remove all zero columns: no edge can have no vertices.
             cols_removed = sum(np.all(I == 0, axis=0))
             I = I[:, ~np.all(I == 0, axis=0)]
+
             # I have to check that it's connected.
             m = I.shape[1]
             block_adj = np.concatenate([np.block([np.zeros((n,n)),I]), np.block([I.T, np.zeros((m,m))])])
