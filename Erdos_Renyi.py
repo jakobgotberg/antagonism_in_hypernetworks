@@ -6,8 +6,6 @@ from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 
 
-f_str = lambda T,i,j,k : f"{T[i][j][k]}, {T[i][k][j]}, {T[j][i][k]}, {T[j][k][i]}, {T[k][i][j]}, {T[k][j][i]}\n"
-lookup = lambda T,p : T[p[0]][p[1]][p[2]]
 
 def assert_legal_A3(T):
     '''
@@ -17,6 +15,8 @@ def assert_legal_A3(T):
     There is no way to escape O(n^3). Each element should only be checked once: which is optimal.
     As long as n is small, T can be in the L1 cache and the lookups are very fast desipte the strides.
     '''
+    f_str = lambda T,i,j,k : f"{T[i][j][k]}, {T[i][k][j]}, {T[j][i][k]}, {T[j][k][i]}, {T[k][i][j]}, {T[k][j][i]}\n"
+    lookup = lambda T,p : T[p[0]][p[1]][p[2]]
 
     n = T.shape[0]
     # A generator with unique triples: no two triples are permutations of each other.
@@ -36,7 +36,6 @@ def assert_legal_A3(T):
 
     except StopIteration:
         pass
-
 
 
 def generate_hypergraphs(n, pr):
@@ -112,22 +111,37 @@ def generate_hypergraphs(n, pr):
 def main():
 
     p = argparse.ArgumentParser(exit_on_error=True)
-    p.add_argument("--verbose",action=argparse.BooleanOptionalAction, default=False)
     p.add_argument("--nodes", type=int, default=12)
     p.add_argument("--prob", type=float, default=0.6)
-    p.add_argument("--normal",action=argparse.BooleanOptionalAction, default=False)
     p.add_argument("--abs",action=argparse.BooleanOptionalAction, default=False)
+    p.add_argument("--show",action=argparse.BooleanOptionalAction, default=False)
+
     a = p.parse_args()
 
     for T in generate_hypergraphs(a.nodes, a.prob):
-        E = np.count_nonzero(T)
-        E_n = np.count_nonzero(T == -1)
+
+        E   = hga.get_signed_hyperedges(T)
+        E_n = sum(1 for e in E if any(x < 0 for x in e))
+        
         H, A_tilde = hga.get_H(T, a.abs)
         algebraic_conflict = max(np.linalg.eigvals(H))
-        print(f"Edges: {E}\t Negative Edges: {E_n}")
+
+        if a.show:
+            I = hga.get_incidence_matrix(T)
+            print(I)
+
+        print(f"Edges: {len(E)}\t Negative Edges: {E_n}")
         print(f"lambda_n: {algebraic_conflict}")
         print(f"FI: {hga.compute_fi(H)}")
-        print(f"FI (A_tilde): {hga.compute_fi(A_tilde)}")
+        if E_n:
+            neg_cycl = hga.negative_hyperedge_cycles(T)
+            if neg_cycl == True:
+                hfi = hga.hyper_frustration_index(T)
+                print(f"Hyper FI: {hfi}")
+            else:
+                assert neg_cycl is not None
+                print("No negative cycles")
+
         print()
 
 if __name__ == "__main__":

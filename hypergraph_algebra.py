@@ -1,7 +1,59 @@
-import random
+from __future__ import annotations
+from typing import Optional
+import random, itertools
 from collections import defaultdict
 import matrix_utils as mu
 import numpy as np
+
+from itertools import combinations
+from dataclasses import dataclass
+
+from typing import Optional
+
+abs_e = lambda e : tuple(abs(x) for x in e)
+
+def get_signed_hyperedges(T):
+    lookup = lambda T,p : T[p[0]][p[1]][p[2]]
+    n = T.shape[0]
+    E = []
+    g = ((i,j,k) for i,j,k in itertools.product(range(n), repeat=3) if i<j<k)
+    try:
+        while hyperedge:=next(g):
+            if sign:=lookup(T,hyperedge):
+                i,j,k = hyperedge
+                t = (int(sign*i),int(sign*j),int(sign*k))
+                E.append(t)
+    except StopIteration:
+        pass
+
+    return E
+
+
+def get_incidence_tensor(Ts):
+    Is = []
+    for T in Ts:
+        Is.append(get_incidence_matrix(T))
+    return Is
+
+def get_incidence_matrix(T):
+    lookup = lambda T,p : T[p[0]][p[1]][p[2]]
+    # extract all edges and put them into a
+    n = T.shape[0]
+    E = []
+    g = ((i,j,k) for i,j,k in itertools.product(range(n), repeat=3) if i<j<k)
+    try:
+        while hyperedge:=next(g):
+            if sign:=lookup(T,hyperedge):
+                i,j,k = hyperedge
+                col = np.zeros(n, dtype=int)
+                col[i] = col[j] = col[k] = sign
+                E.append(col)
+    except StopIteration:
+        pass
+
+    return np.array(E).T
+
+
 
 def get_H(T, absolute=False):
     '''
@@ -30,12 +82,22 @@ def compute_fi(H):
     return min([fi(np.diag(s)) for s in itertools.product([-1,1], repeat=n)]).ravel()
 
 
-def balanced_Incidence(I):
+def maximum_balance(I):
+    assert isinstance(I, np.ndarray)
+    #assert np.issubdtype(I.dtype, np.integer)
+    n, m = I.shape
+    for k in range(m + 1):
+        for deleted_set in itertools.combinations(range(m), k):
+            if balanced_incidence(np.delete(I,deleted_set,axis=1)):
+                return k
+    return m
+
+def balanced_incidence(I):
     '''
     Assumes a connected hypergraph.
     '''
     assert isinstance(I, np.ndarray)
-    assert np.issubdtype(I.dtype, np.integer)
+    #assert np.issubdtype(I.dtype, np.integer)
     n, m = I.shape
 
     # One list of adjacent nodes for each node
@@ -84,3 +146,102 @@ def balanced_Incidence(I):
         return False
 
     return not impossible_to_bipartition(random.choice(range(n)))
+
+def hyper_frustration_index(T):
+
+    E = get_signed_hyperedges(T)
+    m = len(E)
+    for k in range(m + 1):
+        for keep in itertools.combinations(range(m), m-k):
+            filtered = [e for ix,e in enumerate(E) if ix in keep]
+            if _negative_hyperedge_cycles(filtered) == False:
+                return k
+    return m
+
+
+def negative_hyperedge_cycles(T):
+    E = get_signed_hyperedges(T)
+    return _negative_hyperedge_cycles(E)
+
+def _negative_hyperedge_cycles(E):
+    '''
+    Assumes list of hyperedges from a connected hypergraph.
+    '''
+    class Hyperedge:
+        sign     = 0
+        index    = -1
+        vertices = None
+        adjacent = defaultdict(list)
+
+        def __init__(self, index, vertices):
+            self.index = index
+            self.vertices = vertices
+
+        def add_adj(self, adjacent):
+            self.adjacent = adjacent
+
+        def __repr__(self):
+            return f"{self.vertices}"
+
+    class Negative_Cycle(Exception):
+        pass
+#        path = None
+#        def __init__(self, path):
+#            self.path = path
+
+    #def canonical_cycle(path):
+    #    n = len(path)
+    #    rots1 = [tuple(path[i:] + path[:i]) for i in range(n)]
+
+    #    rev = path[::-1]
+    #    rots2 = [tuple(rev[i:] + rev[:i]) for i in range(n)]
+
+    #    return min(rots1 + rots2)
+
+    m = len(E)
+    visited = [None] * m
+    HE = []
+    for ix, e in enumerate(E):
+        he = Hyperedge(ix, abs_e(e))
+        he.sign = -1 if any(x < 0 for x in e) else 1
+        HE.append(he)
+
+    
+    for h in HE:
+        adjs = []
+        for v in h.vertices:
+            adjs.append([adj_h.index for adj_h in HE if adj_h.index != h.index and v in adj_h.vertices])
+
+        # flatten list of lists
+        adjs = [index for adjacent in adjs for index in adjacent]
+        h.adjacent = set(adjs)
+
+    def dfs(start,current,visited,path,parent):
+
+        def negative_product(path):
+            sign = 1
+            for v in path:
+                sign = sign * HE[v].sign
+            return True if sign == -1 else False
+
+        for adj in HE[current].adjacent:
+            if adj == parent:
+                continue
+            if adj == start and len(path) >= 3 and negative_product(path):
+                raise Negative_Cycle()
+                    
+            elif adj not in visited and adj >= start:
+                visited.add(adj)
+                path.append(adj)
+                dfs(start,adj,visited,path,current)
+                path.pop()
+                visited.remove(adj)
+
+    try:
+        for start in [h.index for h in HE]:
+            visited = {start}
+            dfs(start,start,visited,[start], None)
+    except Negative_Cycle:
+        return True
+
+    return False
