@@ -46,6 +46,7 @@ def generate_hypergraphs(n, pr):
     'pr' is the edge probability.
     '''
 
+
     assert n >= 3, "n too small"
     assert pr >= 0.0, "probability must be non-negative"
     Ts = []
@@ -97,8 +98,11 @@ def generate_hypergraphs(n, pr):
 
             # No isolated nodes
             # This is for 2-order hyperedges exclusively
+
             A_tilde = np.array([(_1.T @ A3).ravel() for A3 in T[:]])
-            if (abs(A_tilde) @ _1).all():
+            if not (abs(A_tilde) @ _1).all():
+                continue
+            if mu.irreducible(abs(A_tilde)):
                 break
 
         assert_legal_A3(T)

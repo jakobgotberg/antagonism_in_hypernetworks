@@ -12,6 +12,6 @@ dependencies:
   - numpy
   - pip
   - pip:
-    - hypernetx
+    - hypernetx>=2.4
     - toponetx
     - networkx

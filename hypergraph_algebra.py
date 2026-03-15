@@ -154,7 +154,7 @@ def hyper_frustration_index(T):
     for k in range(m + 1):
         for keep in itertools.combinations(range(m), m-k):
             filtered = [e for ix,e in enumerate(E) if ix in keep]
-            if _negative_hyperedge_cycles(filtered) == False:
+            if _negative_hyperedge_cycles(filtered) == []:
                 return k
     return m
 
@@ -185,9 +185,9 @@ def _negative_hyperedge_cycles(E):
 
     class Negative_Cycle(Exception):
         pass
-#        path = None
-#        def __init__(self, path):
-#            self.path = path
+        path = None
+        def __init__(self, path):
+            self.path = path
 
     #def canonical_cycle(path):
     #    n = len(path)
@@ -228,7 +228,7 @@ def _negative_hyperedge_cycles(E):
             if adj == parent:
                 continue
             if adj == start and len(path) >= 3 and negative_product(path):
-                raise Negative_Cycle()
+                raise Negative_Cycle(path)
                     
             elif adj not in visited and adj >= start:
                 visited.add(adj)
@@ -241,7 +241,7 @@ def _negative_hyperedge_cycles(E):
         for start in [h.index for h in HE]:
             visited = {start}
             dfs(start,start,visited,[start], None)
-    except Negative_Cycle:
-        return True
+    except Negative_Cycle as nc:
+        return nc.path
 
-    return False
+    return []
