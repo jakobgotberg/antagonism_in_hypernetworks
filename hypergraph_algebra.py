@@ -1,4 +1,5 @@
 from __future__ import annotations
+import time
 from typing import Optional
 import random, itertools
 from collections import defaultdict
@@ -12,7 +13,7 @@ from typing import Optional
 
 abs_e = lambda e : tuple(abs(x) for x in e)
 
-def get_signed_hyperedges(T):
+def get_signed_hyperedges(T, absolute=False):
     lookup = lambda T,p : T[p[0]][p[1]][p[2]]
     n = T.shape[0]
     E = []
@@ -21,7 +22,7 @@ def get_signed_hyperedges(T):
         while hyperedge:=next(g):
             if sign:=lookup(T,hyperedge):
                 i,j,k = hyperedge
-                t = (int(sign*i),int(sign*j),int(sign*k))
+                t = (int(sign*i),int(sign*j),int(sign*k)) if not absolute else (i,j,k)
                 E.append(t)
     except StopIteration:
         pass
@@ -82,19 +83,22 @@ def compute_fi(H):
     return min([fi(np.diag(s)) for s in itertools.product([-1,1], repeat=n)]).ravel()
 
 
-def maximum_balance(I):
+def maximum_balance(I, verbose=False):
     assert isinstance(I, np.ndarray)
     #assert np.issubdtype(I.dtype, np.integer)
     n, m = I.shape
     for k in range(m + 1):
+        if verbose:
+            print(k)
         for deleted_set in itertools.combinations(range(m), k):
             if balanced_incidence(np.delete(I,deleted_set,axis=1)):
                 return k
     return m
 
-def balanced_incidence(I):
+def balanced_incidence(I, verbose=False):
     '''
-    Assumes a connected hypergraph.
+    Balanced as defined by Shi and Brzozowski.
+    The hypergraph can be unconnected.
     '''
     assert isinstance(I, np.ndarray)
     #assert np.issubdtype(I.dtype, np.integer)
@@ -107,6 +111,7 @@ def balanced_incidence(I):
     pairwise_index = 0
 
     for e in range(m):
+        # get all vertices in the hyperedge
         incident = np.nonzero(I[:, e])[0]
         # Go through all pairs in hyperedge and compute the edge sign
         for i in range(len(incident)):
@@ -145,7 +150,16 @@ def balanced_incidence(I):
                 stack.append((neighbour, next_group, pairwise_connection))
         return False
 
-    return not impossible_to_bipartition(random.choice(range(n)))
+    time_spent = lambda i: print(f"{i if i else ''} {time.perf_counter() - t0:.3f} s") if verbose else lambda : None
+    t0 = time.perf_counter()
+    for i in range(n):
+        if impossible_to_bipartition(i):
+            time_spent("Unbalanced")
+            return False
+        if i % 100 == 0:
+            time_spent(i)
+    time_spent("Balanced")
+    return True
 
 def hyper_frustration_index(T):
 

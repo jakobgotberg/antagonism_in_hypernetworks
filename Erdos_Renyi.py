@@ -38,7 +38,7 @@ def assert_legal_A3(T):
         pass
 
 
-def generate_hypergraphs(n, pr):
+def generate_hypergraphs(n, pr, restrict=False):
     '''
     Generate a list with an increasing amount of negative hyperedges.
     Erdős–Rényi hypergraphs?
@@ -71,7 +71,7 @@ def generate_hypergraphs(n, pr):
         except StopIteration:
             return negative_edges
 
-    for antagonism in np.arange(0.0, 1+0.2, 0.2):
+    for antagonism in np.arange(0.4, 1+0.1, 0.2):
         while True:
             T = np.zeros((n,n,n))
             for node in range(n):
@@ -102,6 +102,12 @@ def generate_hypergraphs(n, pr):
             A_tilde = np.array([(_1.T @ A3).ravel() for A3 in T[:]])
             if not (abs(A_tilde) @ _1).all():
                 continue
+
+            if restrict:
+                E = hga.get_signed_hyperedges(T, absolute=True)
+                if any(sum(x in t for t in E) > 2 for x in {e for t in E for e in t}):
+                    continue
+
             if mu.irreducible(abs(A_tilde)):
                 break
 
