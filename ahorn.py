@@ -1,5 +1,6 @@
 import numpy as np
 import house_committees
+import senate_committees
 
 R = 'Republican'
 D = 'Democrat' 
@@ -7,12 +8,14 @@ d_map = {D: 1,R:-1}
 r_map = {R: 1,D:-1}
 n_map = {R: 1,D: 1}
 
-def incidence_house_committees(reduced=False):
-    E = sorted(house_committees.get_edges(), key=len)
-    V = house_committees.get_nodes()
-    n = len(V)
+def incidence(dataset:str, reduced=False):
+    assert dataset == "house" or dataset == "senate"
+     
+    E = sorted(house_committees.get_edges(), key=len) if dataset == "house" else sorted(senate_committees.get_edges(), key=len)
+    V = house_committees.get_nodes() if dataset == "house" else senate_committees.get_nodes()
     columns = []
-    dropped = []
+    n = len(V)
+
     T = lambda m,h,e : [m[V[i]] if i in e else 0 for i in range(1,n+1)]
 
     if reduced:
@@ -37,3 +40,4 @@ def incidence_house_committees(reduced=False):
         assert all(c+1 in e for c in col)
 
     return I
+
