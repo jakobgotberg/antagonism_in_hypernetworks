@@ -20,7 +20,9 @@ def generate_hypergraphs(n, pr, edges=[2,3]):
     _1 = mu.one(n)
     rng = np.random.default_rng(time.thread_time_ns())
 
-    for antagonism in np.arange(0.0, 1.2, 0.2):
+    inc = 0.05
+    roof = 1 + inc
+    for antagonism in np.arange(0.0, roof, inc):
         while True:
             c = np.array(random.choices(edges, weights=weights, k=n),dtype=int) * np.sign((np.random.rand(n) - antagonism)).astype(np.int8)
             I = np.zeros((n,n),dtype=int)

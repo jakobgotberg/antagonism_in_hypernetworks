@@ -6,12 +6,14 @@ from collections import defaultdict
 import matrix_utils as mu
 import numpy as np
 
-from itertools import combinations
+from itertools import combinations,product
 from dataclasses import dataclass
 
 from typing import Optional
 
 abs_e = lambda e : tuple(abs(x) for x in e)
+
+
 
 def get_signed_hyperedges(T, absolute=False):
     lookup = lambda T,p : T[p[0]][p[1]][p[2]]
@@ -28,6 +30,7 @@ def get_signed_hyperedges(T, absolute=False):
         pass
 
     return E
+
 
 
 def get_incidence_tensor(Ts):
@@ -56,7 +59,51 @@ def get_incidence_matrix(T):
 
 
 
-def get_H(T, absolute=False):
+def wang_degree_se(L):
+    '''
+    Wang et al. (2021) Theorem 3.5.
+    G is balanced if the maximum single value is an eigenvalue of G's Laplacian.
+    G must be connected.
+    '''
+    assert L.shape[0] == L.shape[1], "L is not a square matrix"
+    rho = sorted(np.linalg.svdvals( np.abs(L) ))[-1]
+    max_e = sorted(np.linalg.eigvals(L))[-1]
+    return np.abs(rho - max_e)
+
+def wang_maxsvd_closest_to_maxeigenvalue(L):
+    assert L.shape[0] == L.shape[1], f"L is not a square matrix"
+    rho = sorted(np.linalg.svdvals( np.abs(L) ))[-1]
+    eigs = sorted(np.linalg.eigvals(L))
+    max_e = eigs[-1]
+    return max_e == min(eigs, key=lambda z: abs(z - rho))
+
+def max_se(M, return_signature=False):
+    '''
+    Graph must be connected.
+    M is Wang et al style incidence.
+    Returns relative number of negative edges in lowest 
+        signature transformation.
+
+    '''
+    e,v = M.shape
+    minimum = np.finfo(np.float64).max
+    min_sf = min_su = None
+    Mp = np.abs(M)
+    p_sum = np.sum(Mp)
+    for sf, su in product( product([-1,1],repeat=e), product([-1,1],repeat=v) ):
+        Sf = np.diag(sf); Su = np.diag(su)
+        f = ((Sf @ M @ Su) == -1).sum() / p_sum
+        if f < minimum:
+            minimum = f
+            if return_signature:
+                min_sf = Sf; min_su = Su
+
+    #return f if not return_signature else f, min_sf, min_su
+    return minimum
+
+
+
+def get_H(T, a_tilde=False):
     '''
     We define the degree matrix as: A2 + 1_3.T @ A3_1 + ... + 1_3.T @ A3_n
     No pairwise connection in this program, hence A2 is the zero matrix
@@ -64,12 +111,16 @@ def get_H(T, absolute=False):
     '''
     n = T.shape[0]
     _1 = mu.one(n)
-    A_tilde       =  np.zeros((n,n)) + np.array([(_1.T @ A3).ravel() for A3 in T[:]]) if not absolute \
-                        else np.zeros((n,n)) + np.array([(_1.T @ abs(A3)).ravel() for A3 in T[:]])
-    degree_matrix =  np.diag( (abs(A_tilde) @ _1).ravel() )
+    A_tilde       =  np.zeros((n,n)) + np.array([(_1.T @ A3).ravel() for A3 in T[:]]) 
+    #if not absolute else np.zeros((n,n)) + np.array([(_1.T @ abs(A3)).ravel() for A3 in T[:]])
 
-    # The normalized adjacency matrix, H
-    return np.linalg.inv(degree_matrix) @ A_tilde, A_tilde
+    if not a_tilde:
+        degree_matrix =  np.diag( (abs(A_tilde) @ _1).ravel() )
+
+        # The normalized adjacency matrix, H
+        return np.linalg.inv(degree_matrix) @ A_tilde
+
+    return A_tilde
 
 
 def compute_fi(H):
