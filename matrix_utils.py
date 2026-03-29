@@ -106,6 +106,7 @@ def get_path_graph(n, self_loops=True):
 def get_random_uni(n):
     '''
     Returns a connected graph of size n
+
     Connected = irreducible for undirected graphs
     '''
     connected = False

@@ -10,6 +10,7 @@ dependencies:
   - matplotlib
   - jupyterlab
   - numpy
+  - seaborn
   - pip
   - pip:
     - hypernetx>=2.4

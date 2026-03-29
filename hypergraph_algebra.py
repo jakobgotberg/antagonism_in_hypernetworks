@@ -59,18 +59,8 @@ def get_incidence_matrix(T):
 
 
 
-def wang_degree_se(L):
-    '''
-    Wang et al. (2021) Theorem 3.5.
-    G must be connected.
-    '''
-    assert L.shape[0] == L.shape[1], "L is not a square matrix"
-    rho = sorted(np.linalg.svdvals( np.abs(L) ))[-1]
-    max_e = sorted(np.linalg.eigvals(L))[-1]
-    return np.abs(rho - max_e)
 
-
-def rho_maxrho_diff(L):
+def RHO(L):
     '''
     |rho(|L|) - rho(L)|
     '''
@@ -79,13 +69,12 @@ def rho_maxrho_diff(L):
     rho = sorted(np.linalg.eigvals(L))[-1]
     return abs(abs_rho - rho)
 
-def maxsvd_maxabssvd_diff(L):
+def SVD(M):
     '''
-    |max_svd(|L|) - max_svd(L)|
+    |max_svd(|M|) - max_svd(M)|
     '''
-    assert L.shape[0] == L.shape[1], f"L is not a square matrix"
-    max_abs_svd = sorted(np.linalg.svdvals( np.abs(L) ))[-1]
-    max_svd = sorted(np.linalg.svdvals(L))[-1]
+    max_abs_svd = sorted(np.linalg.svdvals( np.abs(M) ))[-1]
+    max_svd = sorted(np.linalg.svdvals(M))[-1]
     return abs(max_abs_svd - max_svd)
 
 def rho_is_closest(L):
@@ -109,39 +98,34 @@ def maxsvd_is_closest(L):
     max_abs_svd = sorted(np.linalg.svdvals( np.abs(L) ))[-1]
     return max_sv == min(svds, key=lambda z: abs(z - max_abs_svd))
 
-
-def maxsvd_closest_to_maxeigenvalue(L):
-    '''
-    This is not what Wand et al. defined.
-    '''
-    assert L.shape[0] == L.shape[1], f"L is not a square matrix"
-    rho = sorted(np.linalg.svdvals( np.abs(L) ))[-1]
-    eigs = sorted(np.linalg.eigvals(L))
-    max_e = eigs[-1]
-    return max_e == min(eigs, key=lambda z: abs(z - rho))
-
-def max_se(M, return_signature=False):
+def max_se(M):
     '''
     Graph must be connected.
     M is Wang et al style incidence.
     Returns relative number of negative edges in lowest 
         signature transformation.
 
+    Returns a value between 0 and 1, the min ratio of 
+        negative incidences over all incidences.
+
+        Zero means balanced.
+        A value close to 1 means very unbalanced.
+        A value of 1 is not possible as the all negative graph can be
+            transformed into the all possitve one. 
     '''
     e,v = M.shape
     minimum = np.finfo(np.float64).max
-    min_sf = min_su = None
     Mp = np.abs(M)
     p_sum = np.sum(Mp)
     for sf, su in product( product([-1,1],repeat=e), product([-1,1],repeat=v) ):
-        Sf = np.diag(sf); Su = np.diag(su)
+        Sf = np.diag(sf)
+        Su = np.diag(su)
         f = ((Sf @ M @ Su) == -1).sum() / p_sum
+        if f == 0.0:
+            return 0.0
         if f < minimum:
             minimum = f
-            if return_signature:
-                min_sf = Sf; min_su = Su
 
-    #return f if not return_signature else f, min_sf, min_su
     return minimum
 
 
