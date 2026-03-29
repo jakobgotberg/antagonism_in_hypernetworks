@@ -70,6 +70,24 @@ def wang_degree_se(L):
     return np.abs(rho - max_e)
 
 
+def rho_maxrho_diff(L):
+    '''
+    |rho(|L|) - rho(L)|
+    '''
+    assert L.shape[0] == L.shape[1], f"L is not a square matrix"
+    abs_rho = sorted(np.linalg.eigvals( np.abs(L) ))[-1]
+    rho = sorted(np.linalg.eigvals(L))[-1]
+    return abs(abs_rho - rho)
+
+def maxsvd_maxabssvd_diff(L):
+    '''
+    |max_svd(|L|) - max_svd(L)|
+    '''
+    assert L.shape[0] == L.shape[1], f"L is not a square matrix"
+    max_abs_svd = sorted(np.linalg.svdvals( np.abs(L) ))[-1]
+    max_svd = sorted(np.linalg.svdvals(L))[-1]
+    return abs(max_abs_svd - max_svd)
+
 def rho_is_closest(L):
     '''
     Asserts if rho(|L|) is closest to rho(L)
