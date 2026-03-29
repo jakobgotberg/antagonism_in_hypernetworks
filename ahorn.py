@@ -62,7 +62,7 @@ def incidence(dataset:str, reduced=False, wang_incidence=False):
         c = T(m,h,e)
         columns.append(c)
 
-    I = np.array(columns).astype(int).T
+    I = np.array(columns).astype(np.int8).T
 
     assert np.unique(I).tolist() == [-1,0,1]
     for ix, e in enumerate(E):

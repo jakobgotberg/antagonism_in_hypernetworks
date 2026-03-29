@@ -11,6 +11,7 @@ def timeout_handler(signum, frame):
 def e_i(n, i):
     return np.eye(n)[:, i]
 
+
 def one(n):
     assert isinstance(n , int)
     assert n > 0
@@ -34,9 +35,14 @@ def hight(B):
     assert isinstance(B, np.ndarray)
     n, _ = B.shape
     return n
+
 def rho(B):
     assert isinstance(B, np.ndarray)
     return sorted(np.linalg.eigvals(B))[-1]
+
+def max_svd(B):
+    assert isinstance(B, np.ndarray)
+    return sorted(np.linalg.svdvals(B))[-1]
 
 def nonnegative(B):
     assert isinstance(B, np.ndarray)
@@ -136,6 +142,25 @@ def get_random(n):
         return w
 
     return np.array([row() for _ in range(n)])
+
+def absolute_bipartite_incidence_adjacency(I):
+    I = np.abs(I)
+    V = I.shape[0]
+    E = I.T.shape[0]
+    B1 = np.block([np.zeros((V,V),dtype=np.int8),I])
+    B2 = np.block([I.T,np.zeros((E,E),dtype=np.int8)])
+    B = np.concatenate([B1,B2])
+    return B.astype(np.int8)
+
+def absolute_bipartite_incidence_laplacian(I):
+    A = absolute_bipartite_incidence_adjacency(I)
+    D = np.diag(A @ np.ones(A.shape[0],dtype=np.int8)).astype(np.int8)
+    L = D - A
+    return L.astype(np.int8)
+
+
+def fiedler(L):
+    return sorted(np.linalg.eigvals(L))[1]
 
 def matrix_power_sum(B, power):
     return _matrix_power_sum(B, 1, power)

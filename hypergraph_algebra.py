@@ -62,7 +62,6 @@ def get_incidence_matrix(T):
 def wang_degree_se(L):
     '''
     Wang et al. (2021) Theorem 3.5.
-    G is balanced if the maximum single value is an eigenvalue of G's Laplacian.
     G must be connected.
     '''
     assert L.shape[0] == L.shape[1], "L is not a square matrix"
@@ -70,7 +69,33 @@ def wang_degree_se(L):
     max_e = sorted(np.linalg.eigvals(L))[-1]
     return np.abs(rho - max_e)
 
-def wang_maxsvd_closest_to_maxeigenvalue(L):
+
+def rho_is_closest(L):
+    '''
+    Asserts if rho(|L|) is closest to rho(L)
+    '''
+    assert L.shape[0] == L.shape[1], f"L is not a square matrix"
+    abs_rho = sorted(np.linalg.eigvals( np.abs(L) ))[-1]
+    eigs = sorted(np.linalg.eigvals(L))
+    rho = eigs[-1]
+    return rho == min(eigs, key=lambda z: abs(z - abs_rho))
+
+def maxsvd_is_closest(L):
+    '''
+    Asserts if the max absolute single value is closest to the max single value
+    of L.
+    '''
+    assert L.shape[0] == L.shape[1], f"L is not a square matrix"
+    svds = sorted(np.linalg.svdvals(L))
+    max_sv = svds[-1]
+    max_abs_svd = sorted(np.linalg.svdvals( np.abs(L) ))[-1]
+    return max_sv == min(svds, key=lambda z: abs(z - max_abs_svd))
+
+
+def maxsvd_closest_to_maxeigenvalue(L):
+    '''
+    This is not what Wand et al. defined.
+    '''
     assert L.shape[0] == L.shape[1], f"L is not a square matrix"
     rho = sorted(np.linalg.svdvals( np.abs(L) ))[-1]
     eigs = sorted(np.linalg.eigvals(L))
