@@ -5,20 +5,20 @@ import hypergraph_algebra as hga
 
 def generate_hypergraphs(n, pr, m=None, edges=[2,3]):
     '''
-    Genereate Shi Brzozowski type hypergraphs
-    'n' is the order of H: |V|
+    Genereate Shi Brzozowski type hypergraphs.
+    'n' is |V|
     'pr' is the edge probability.
+    'm' is |E|
+    'edges' are the possible hyperedge cardinalities.
     '''
-
     assert n >= 3, "n too small"
     assert pr >= 0.0, "probability must be non-negative"
-    Is = []
 
+    Is = []
     k = max(edges)
     m = n if m is None else m
     edges = [0] + edges
     weights = [1-pr if e == 0 else pr/len(edges) for e in edges]
-    _1 = mu.one(n)
     rng = np.random.default_rng(time.thread_time_ns())
 
     inc = 0.05
@@ -39,18 +39,14 @@ def generate_hypergraphs(n, pr, m=None, edges=[2,3]):
 
             # I have to check that it's connected.
             es = I.shape[1]
-            #L = I @ I.T
-            block_adj = np.concatenate([np.block([np.zeros((n,n)),I]), np.block([I.T, np.zeros((es,es))])])
-            block_L = np.diag( (block_adj @ mu.one(block_adj.shape[0])).ravel() ) - block_adj
-            fielder_eigenvalue = sorted(np.linalg.eigvals(block_L))[1]
+            fielder_eigenvalue = mu.fiedler(mu.absolute_bipartite_incidence_laplacian(I))
             if not np.isclose(fielder_eigenvalue, 0.0, atol=1e-9) and np.unique(abs(I), axis=1).shape[1] == es-cols_removed:
                 # Connected and not a multigraph
-                del block_adj, block_L
                 break
             
         Is.append(I)
 
-    #assert np.isin(np.unique(Is), [-1,0,1]).all(), f"Is contains: {np.unique(Is)}"
+    assert np.isin(np.unique(Is), [-1,0,1]).all(), f"Is contains: {np.unique(Is)}"
     return Is
 
     

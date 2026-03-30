@@ -1,64 +1,60 @@
-from __future__ import annotations
 import time
-from typing import Optional
 import random, itertools
 from collections import defaultdict
 import matrix_utils as mu
 import numpy as np
 
-from itertools import combinations,product
-from dataclasses import dataclass
 
-from typing import Optional
+'''
+    Helper
+'''
 
-abs_e = lambda e : tuple(abs(x) for x in e)
+def get_H(A):
+    '''
+    We define the degree matrix as: A2 + 1_3.T @ A3_1 + ... + 1_3.T @ A3_n
+    No pairwise connection in this program, hence A2 is the zero matrix
+    H = inv(D) @ adjacency
+    '''
+    n = A.shape[0]
+    _1 = mu.one(n)
+    A_tilde       =  np.zeros((n,n)) + np.array([(_1.T @ A3).ravel() for A3 in T[:]]) 
+    #if not absolute else np.zeros((n,n)) + np.array([(_1.T @ abs(A3)).ravel() for A3 in T[:]])
 
+    if not a_tilde:
+        degree_matrix =  np.diag( (abs(A_tilde) @ _1).ravel() )
 
+        # The normalized adjacency matrix, H
+        return np.linalg.inv(degree_matrix) @ A_tilde
 
-def get_signed_hyperedges(T, absolute=False):
-    lookup = lambda T,p : T[p[0]][p[1]][p[2]]
-    n = T.shape[0]
-    E = []
-    g = ((i,j,k) for i,j,k in itertools.product(range(n), repeat=3) if i<j<k)
-    try:
-        while hyperedge:=next(g):
-            if sign:=lookup(T,hyperedge):
-                i,j,k = hyperedge
-                t = (int(sign*i),int(sign*j),int(sign*k)) if not absolute else (i,j,k)
-                E.append(t)
-    except StopIteration:
-        pass
+    return A_tilde
 
-    return E
+'''
+    Measurements
+'''
+def algebraic_conflict(H):
+    return sorted(np.linalg.eigvals(H))[-1]
 
+def compute_fi(H):
+    '''
+    Find S through brute forcing all elements: s in {-1,1}^n
+    The returned value is normalized: not an integer. How can I convert it to one?
+    '''
+    n = H.shape[0]
+    _1 = mu.one(n)
+    fi = lambda S : _1.T @ (abs(H) - (S @ H @ S)) @ _1
+    return min([fi(np.diag(s)) for s in itertools.product([-1,1], repeat=n)]).ravel()
 
-
-def get_incidence_tensor(Ts):
-    Is = []
-    for T in Ts:
-        Is.append(get_incidence_matrix(T))
-    return Is
-
-def get_incidence_matrix(T):
-    lookup = lambda T,p : T[p[0]][p[1]][p[2]]
-    # extract all edges and put them into a
-    n = T.shape[0]
-    E = []
-    g = ((i,j,k) for i,j,k in itertools.product(range(n), repeat=3) if i<j<k)
-    try:
-        while hyperedge:=next(g):
-            if sign:=lookup(T,hyperedge):
-                i,j,k = hyperedge
-                col = np.zeros(n, dtype=int)
-                col[i] = col[j] = col[k] = sign
-                E.append(col)
-    except StopIteration:
-        pass
-
-    return np.array(E).T
-
-
-
+def maximum_balance(I, verbose=False):
+    assert isinstance(I, np.ndarray)
+    #assert np.issubdtype(I.dtype, np.integer)
+    n, m = I.shape
+    for k in range(m + 1):
+        if verbose:
+            print(k)
+        for deleted_set in itertools.combinations(range(m), k):
+            if balanced_incidence(np.delete(I,deleted_set,axis=1)):
+                return k
+    return m
 
 def RHO(L):
     '''
@@ -117,7 +113,7 @@ def max_se(M):
     minimum = np.finfo(np.float64).max
     Mp = np.abs(M)
     p_sum = np.sum(Mp)
-    for sf, su in product( product([-1,1],repeat=e), product([-1,1],repeat=v) ):
+    for sf, su in itertools.product( itertools.product([-1,1],repeat=e), itertools.product([-1,1],repeat=v) ):
         Sf = np.diag(sf)
         Su = np.diag(su)
         f = ((Sf @ M @ Su) == -1).sum() / p_sum
@@ -130,48 +126,6 @@ def max_se(M):
 
 
 
-def get_H(T, a_tilde=False):
-    '''
-    We define the degree matrix as: A2 + 1_3.T @ A3_1 + ... + 1_3.T @ A3_n
-    No pairwise connection in this program, hence A2 is the zero matrix
-    H = inv(D) @ adjacency
-    '''
-    n = T.shape[0]
-    _1 = mu.one(n)
-    A_tilde       =  np.zeros((n,n)) + np.array([(_1.T @ A3).ravel() for A3 in T[:]]) 
-    #if not absolute else np.zeros((n,n)) + np.array([(_1.T @ abs(A3)).ravel() for A3 in T[:]])
-
-    if not a_tilde:
-        degree_matrix =  np.diag( (abs(A_tilde) @ _1).ravel() )
-
-        # The normalized adjacency matrix, H
-        return np.linalg.inv(degree_matrix) @ A_tilde
-
-    return A_tilde
-
-
-def compute_fi(H):
-    '''
-    Find S through brute forcing all elements: s in {-1,1}^n
-    The returned value is normalized: not an integer. How can I convert it to one?
-    '''
-    n = H.shape[0]
-    _1 = mu.one(n)
-    fi = lambda S : _1.T @ (abs(H) - (S @ H @ S)) @ _1
-    return min([fi(np.diag(s)) for s in itertools.product([-1,1], repeat=n)]).ravel()
-
-
-def maximum_balance(I, verbose=False):
-    assert isinstance(I, np.ndarray)
-    #assert np.issubdtype(I.dtype, np.integer)
-    n, m = I.shape
-    for k in range(m + 1):
-        if verbose:
-            print(k)
-        for deleted_set in itertools.combinations(range(m), k):
-            if balanced_incidence(np.delete(I,deleted_set,axis=1)):
-                return k
-    return m
 
 def balanced_incidence(I, verbose=False):
     '''
@@ -239,101 +193,3 @@ def balanced_incidence(I, verbose=False):
     time_spent("Balanced")
     return True
 
-def hyper_frustration_index(T):
-
-    E = get_signed_hyperedges(T)
-    m = len(E)
-    for k in range(m + 1):
-        for keep in itertools.combinations(range(m), m-k):
-            filtered = [e for ix,e in enumerate(E) if ix in keep]
-            if _negative_hyperedge_cycles(filtered) == []:
-                return k
-    return m
-
-
-def negative_hyperedge_cycles(T):
-    E = get_signed_hyperedges(T)
-    return _negative_hyperedge_cycles(E)
-
-def _negative_hyperedge_cycles(E):
-    '''
-    Assumes list of hyperedges from a connected hypergraph.
-    '''
-    class Hyperedge:
-        sign     = 0
-        index    = -1
-        vertices = None
-        adjacent = defaultdict(list)
-
-        def __init__(self, index, vertices):
-            self.index = index
-            self.vertices = vertices
-
-        def add_adj(self, adjacent):
-            self.adjacent = adjacent
-
-        def __repr__(self):
-            return f"{self.vertices}"
-
-    class Negative_Cycle(Exception):
-        pass
-        path = None
-        def __init__(self, path):
-            self.path = path
-
-    #def canonical_cycle(path):
-    #    n = len(path)
-    #    rots1 = [tuple(path[i:] + path[:i]) for i in range(n)]
-
-    #    rev = path[::-1]
-    #    rots2 = [tuple(rev[i:] + rev[:i]) for i in range(n)]
-
-    #    return min(rots1 + rots2)
-
-    m = len(E)
-    visited = [None] * m
-    HE = []
-    for ix, e in enumerate(E):
-        he = Hyperedge(ix, abs_e(e))
-        he.sign = -1 if any(x < 0 for x in e) else 1
-        HE.append(he)
-
-    
-    for h in HE:
-        adjs = []
-        for v in h.vertices:
-            adjs.append([adj_h.index for adj_h in HE if adj_h.index != h.index and v in adj_h.vertices])
-
-        # flatten list of lists
-        adjs = [index for adjacent in adjs for index in adjacent]
-        h.adjacent = set(adjs)
-
-    def dfs(start,current,visited,path,parent):
-
-        def negative_product(path):
-            sign = 1
-            for v in path:
-                sign = sign * HE[v].sign
-            return True if sign == -1 else False
-
-        for adj in HE[current].adjacent:
-            if adj == parent:
-                continue
-            if adj == start and len(path) >= 3 and negative_product(path):
-                raise Negative_Cycle(path)
-                    
-            elif adj not in visited and adj >= start:
-                visited.add(adj)
-                path.append(adj)
-                dfs(start,adj,visited,path,current)
-                path.pop()
-                visited.remove(adj)
-
-    try:
-        for start in [h.index for h in HE]:
-            visited = {start}
-            dfs(start,start,visited,[start], None)
-    except Negative_Cycle as nc:
-        return nc.path
-
-    return []

@@ -3,22 +3,11 @@ import numpy as np
 import numpy.linalg as linalg
 cp = copy.deepcopy
     
-class Timeout(Exception):
-    pass
-def timeout_handler(signum, frame):
-    raise Timeout
-
-def e_i(n, i):
-    return np.eye(n)[:, i]
-
 
 def one(n):
     assert isinstance(n , int)
     assert n > 0
     return np.array([[1]] * n)
-
-def PI_n(n):
-    return np.eye(n) - ( (one(n)/n) @ one(n).T )
 
 def square(B):
     return True if width(B) == hight(B) else False
@@ -26,15 +15,6 @@ def square(B):
 def n_(B):
     assert square(B), "Not square"
     return hight(B)
-
-def width(B):
-    assert isinstance(B, np.ndarray)
-    _, m = B.shape
-    return m
-def hight(B):
-    assert isinstance(B, np.ndarray)
-    n, _ = B.shape
-    return n
 
 def rho(B):
     assert isinstance(B, np.ndarray)
@@ -61,12 +41,17 @@ def row_stochastic(B):
 def semi_convergent(B):
     pass
     # return rho(B) == 1 ## is this true?
+
 def convergent(B):
     return rho(B) < 1
 
 def irreducible(B):
     return positive( _matrix_power_sum(B, 0, n_(B)-1) )
 
+class Timeout(Exception):
+    pass
+def timeout_handler(signum, frame):
+    raise Timeout
 def primitive(A, limit=10):
     '''
     An algorithm only checking 'primitivety' using the definition
@@ -87,62 +72,6 @@ def primitive(A, limit=10):
         return False
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
-
-
-def averaging(A, x0, k):
-    '''
-    Returns xk = A^k x0
-    '''
-    return linalg.matrix_power(A, k) @ x0
-
-def get_path_graph(n, self_loops=True):
-    r = range(n)
-    A = np.zeros((n,n))
-    for ij in itertools.product(r,r):
-        i,j = ij
-        A[i][j] = 1 if i == j or i == j-1 or j == i-1 else 0
-    return A if self_loops else A - np.diag(np.diag(A)) 
-
-def get_random_uni(n):
-    '''
-    Returns a connected graph of size n
-
-    Connected = irreducible for undirected graphs
-    '''
-    connected = False
-    r = range(n)
-    E = list(itertools.product(r,r))
-    E = list(itertools.filterfalse(lambda e: e[0] >= e[1], E))
-    F = cp(E)
-    while not connected:
-        E = list(itertools.filterfalse(lambda a:  random.randint(0,1), F))
-        A = adjacency_matrix(E)
-        connected = irreducible(A)
-    
-    return A
-
-def wdir(n):
-    A = np.array([
-                [0, 1, 0, 0, 0],
-                [1, 0, 0, 0, 1],
-                [0, 1, 0, 0, 1],
-                [0, 0, 1, 0, 0],
-                [1, 0, 0, 1, 0]])
-    return A
-
-def get_random(n):
-    import random
-    '''
-    Random row stochastic square matrix:
-    '''
-    def row():
-        r = [random.randint(0,7) for i in range(n)]
-        s = math.fsum(r)
-        w = [x/s for x in r]
-        assert math.isclose(math.fsum(w), 1.0, rel_tol=1e-12, abs_tol=1e-15)
-        return w
-
-    return np.array([row() for _ in range(n)])
 
 def absolute_bipartite_incidence_adjacency(I):
     I = np.abs(I)
@@ -176,85 +105,4 @@ def _matrix_power_sum(B, start, end):
     for k in range(start, end):
         S += linalg.matrix_power(B, k)
     return S
-
-def get_n_from_E(E:list):
-    '''
-    0 indexed
-    '''
-    return max([e[1] for e in E]) + 1
-    
-
-def check_E(E):
-    assert isinstance(E, list)
-    assert all(isinstance(t, tuple) for t in E)
-    assert len(E) == len(set(E))
-    # assert 0 indexed
-    # assert no self-loops
-    # assert a < b in (a,b) in E
-    
-def laplacian_matrix(E:list):
-    return degree_matrix(E) - adjacency_matrix(E) 
-def degree_matrix(E:list):
-    '''
-    E is the list of undirected edges, represented as tuples
-    G is assumed to be connected
-    '''
-    check_E(E)
-    n = get_n_from_E(E)
-    D = [0] * n
-    for e in E:
-        D[e[0]] += 1
-        D[e[1]] += 1
-    return np.diag(D)
-    
-def wdir_adjacency_matrix(E:list):
-    n = max(max([e[0] for e in E]), max([e[1] for e in E])) + 1
-    A = np.zeros((n,n))
-    for e in E:
-        i, j, w = e
-        A[i][j] = w
-    return A
-
-def adjacency_matrix(E:list):
-    '''
-    E is the list of undirected edges, represented as tuples
-    G is assumed to be connected
-    '''
-    check_E(E)
-    n = get_n_from_E(E)
-    A = np.zeros((n,n))
-    for e in E:
-        i, j = e
-        A[i][j] = A[j][i] = 1
-    return A
-
-def get_adjacency_tensor(n, E):
-    A = np.zeros((n,n,n)) 
-    for e in E:
-        for p in itertools.permutations(e):
-            A[p[0]][p[1]][p[2]] = 1
-    return A
-
-def find_negative_cycle(A):
-    n = A.shape[0]
-
-    def DFS(E):
-        visited = [[False] * n]
-        stack = []
-    def get_edges(A):
-        E = []
-        lookup = lambda ix : A[ix[0]][ix[1]][ix[2]]
-        not_a_permutation_in_E = lambda ix : np.array([p not in E for p in itertools.permutations(ix)]).all()
-        # extract edges from A
-        g = ((i,j,k) for i,j,k in itertools.product(range(n), repeat=3) if i<j<k)
-        try:
-            while index:=next(g):
-                if lookup(index) and not_a_permutation_in_E(index):
-                    E.append(index)
-        except StopIteration:
-            pass
-        return E
-
-    E = get_edges(A)
-    return E
 

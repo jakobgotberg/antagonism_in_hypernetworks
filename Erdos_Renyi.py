@@ -2,10 +2,6 @@ import time,argparse,sys,itertools,copy
 import numpy as np
 import matrix_utils as mu
 import hypergraph_algebra as hga
-from scipy.sparse import csr_matrix
-from scipy.sparse.csgraph import connected_components
-
-
 
 def assert_legal_A3(T):
     '''
@@ -99,9 +95,6 @@ def generate_hypergraphs(n, pr, restrict=False):
             # No isolated nodes
             # This is for 2-order hyperedges exclusively
 
-            A_tilde = np.array([(_1.T @ A3).ravel() for A3 in T[:]])
-            if not (abs(A_tilde) @ _1).all():
-                continue
 
             if restrict:
                 E = hga.get_signed_hyperedges(T, absolute=True)
