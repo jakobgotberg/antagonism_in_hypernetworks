@@ -1,56 +1,52 @@
-import time
+import time,sys
 import random, itertools
 from collections import defaultdict
 import matrix_utils as mu
 import numpy as np
 
-
 '''
-    Helper
+    Measurements on signed hypergraphs ans signed graphs.
 '''
 
-def get_H(A):
+def normal_algebraic_conflict(H):
     '''
-    We define the degree matrix as: A2 + 1_3.T @ A3_1 + ... + 1_3.T @ A3_n
-    No pairwise connection in this program, hence A2 is the zero matrix
-    H = inv(D) @ adjacency
+    Algebraic conflict on the (normalized) adjacency matrix.
+    From Aref et al.
     '''
-    n = A.shape[0]
-    _1 = mu.one(n)
-    A_tilde       =  np.zeros((n,n)) + np.array([(_1.T @ A3).ravel() for A3 in T[:]]) 
-    #if not absolute else np.zeros((n,n)) + np.array([(_1.T @ abs(A3)).ravel() for A3 in T[:]])
+    assert (np.diag(H) == 0).all(), "Not an adjacency matrix"
+    degrees = sorted((H != 0).astype(np.int64) @ np.ones(H.shape[0]))
+    d_max = (degrees[-1] + degrees[-2]) / 2
 
-    if not a_tilde:
-        degree_matrix =  np.diag( (abs(A_tilde) @ _1).ravel() )
+    return algebraic_conflict(H) / (d_max -1)
 
-        # The normalized adjacency matrix, H
-        return np.linalg.inv(degree_matrix) @ A_tilde
-
-    return A_tilde
-
-'''
-    Measurements
-'''
 def algebraic_conflict(H):
-    return sorted(np.linalg.eigvals(H))[-1]
+    '''
+    Algebraic conflict on the (normalized) adjacency matrix.
+    '''
+    assert (np.diag(H) == 0).all(), "Not an adjacency matrix"
+    return mu.rho(H)
 
-def compute_fi(H):
+def normal_FI(H):
+    '''
+    From Aref et al.
+    '''
+    number_of_edges = np.sum(np.triu( (H != 0).astype(np.int64) ))
+    return FI(H) / (number_of_edges)
+
+def FI(H):
     '''
     Find S through brute forcing all elements: s in {-1,1}^n
-    The returned value is normalized: not an integer. How can I convert it to one?
+    The returned value is normalized.
     '''
     n = H.shape[0]
-    _1 = mu.one(n)
-    fi = lambda S : _1.T @ (abs(H) - (S @ H @ S)) @ _1
-    return min([fi(np.diag(s)) for s in itertools.product([-1,1], repeat=n)]).ravel()
+    fi = lambda S : np.ones(n) @ (np.abs(H) - (S @ H @ S)) @ np.ones(n)
+    return min([fi(np.diag(s)) for s in itertools.product([-1,1], repeat=n)])
 
 def maximum_balance(I, verbose=False):
-    assert isinstance(I, np.ndarray)
-    #assert np.issubdtype(I.dtype, np.integer)
     n, m = I.shape
     for k in range(m + 1):
         if verbose:
-            print(k)
+            print(f"|E'| = {k}")
         for deleted_set in itertools.combinations(range(m), k):
             if balanced_incidence(np.delete(I,deleted_set,axis=1)):
                 return k
@@ -61,16 +57,16 @@ def RHO(L):
     |rho(|L|) - rho(L)|
     '''
     assert L.shape[0] == L.shape[1], f"L is not a square matrix"
-    abs_rho = sorted(np.linalg.eigvals( np.abs(L) ))[-1]
-    rho = sorted(np.linalg.eigvals(L))[-1]
+    abs_rho = mu.rho(np.abs(L))
+    rho = mu.rho(L)
     return abs(abs_rho - rho)
 
 def SVD(M):
     '''
     |max_svd(|M|) - max_svd(M)|
     '''
-    max_abs_svd = sorted(np.linalg.svdvals( np.abs(M) ))[-1]
-    max_svd = sorted(np.linalg.svdvals(M))[-1]
+    max_abs_svd = mu.max_svd(np.abs(M))
+    max_svd = mu.max_svd(M)
     return abs(max_abs_svd - max_svd)
 
 def rho_is_closest(L):
@@ -78,20 +74,19 @@ def rho_is_closest(L):
     Asserts if rho(|L|) is closest to rho(L)
     '''
     assert L.shape[0] == L.shape[1], f"L is not a square matrix"
-    abs_rho = sorted(np.linalg.eigvals( np.abs(L) ))[-1]
     eigs = sorted(np.linalg.eigvals(L))
     rho = eigs[-1]
+    abs_rho = mu.max_svd(np.abs(L))
     return rho == min(eigs, key=lambda z: abs(z - abs_rho))
 
-def maxsvd_is_closest(L):
+def maxsvd_is_closest(M):
     '''
     Asserts if the max absolute single value is closest to the max single value
     of L.
     '''
-    assert L.shape[0] == L.shape[1], f"L is not a square matrix"
-    svds = sorted(np.linalg.svdvals(L))
+    svds = sorted(np.linalg.svdvals(M))
     max_sv = svds[-1]
-    max_abs_svd = sorted(np.linalg.svdvals( np.abs(L) ))[-1]
+    max_abs_svd = mu.max_svd(np.abs(M))
     return max_sv == min(svds, key=lambda z: abs(z - max_abs_svd))
 
 def max_se(M):
@@ -124,16 +119,13 @@ def max_se(M):
 
     return minimum
 
-
-
-
-def balanced_incidence(I, verbose=False):
+def balanced_incidence(I):
     '''
     Balanced as defined by Shi and Brzozowski.
     The hypergraph can be unconnected.
     '''
     assert isinstance(I, np.ndarray)
-    #assert np.issubdtype(I.dtype, np.integer)
+    # n = |V|, m = |E|
     n, m = I.shape
 
     # One list of adjacent nodes for each node
@@ -143,27 +135,28 @@ def balanced_incidence(I, verbose=False):
     pairwise_index = 0
 
     for e in range(m):
-        # get all vertices in the hyperedge
+        # get all vertices in the hyperedge, i.e., all non-zero elements
+        # in the e:th column.
         incident = np.nonzero(I[:, e])[0]
+
         # Go through all pairs in hyperedge and compute the edge sign
-        for i in range(len(incident)):
-            for j in range(i + 1, len(incident)):
-                u, v = int(incident[i]), int(incident[j])
-                sign = int(I[u, e]) * int(I[v, e])
-                signed_adj[u].append((v, sign, pairwise_index))
-                signed_adj[v].append((u, sign, pairwise_index))
-                pairwise_index += 1
+        for pairwise in itertools.combinations(incident, r=2):
+            u,v = pairwise
+            sign = int(I[u, e] * I[v, e]) # cast from np.int64 to int.
+            signed_adj[u].append((v, sign, pairwise_index))
+            signed_adj[v].append((u, sign, pairwise_index))
+            pairwise_index += 1
 
     def impossible_to_bipartition(start):
         partitioning = {}
         '''
         Uses DFS to go through hypergraph and partitions each node into group 0 or group 1.
-        The start node is arbitrary for 2-partitioning.
-        start node is assigned 0; all negatively adjacent neighbors are assigned 1.
+        (The start node's group is arbitrary for 2-partitioning.)
+        Start node is assigned group 0, all negatively adjacent neighbors are assigned group 1.
 
-        If the algorithm finds an already visited node, there is a cycle:
+        If the algorithm finds an already visited node, there is a cycle,
         if the node is in one group, but the 'next_group' is the other group,
-        the cycle is negative and the bipartition is impossible.
+        the cycle is negative and the bipartition is impossible, i.e., unbalanced.
         '''
 
         # (node, group, origin relation)
@@ -172,24 +165,20 @@ def balanced_incidence(I, verbose=False):
             node, group, origin_connection = stack.pop()
             if node in partitioning:
                 if partitioning[node] != group:
+                    # Inconsistency, cannot bipartition.
                     return True
                 continue
             partitioning[node] = group
             for neighbour, sign, pairwise_connection in signed_adj[node]:
                 if pairwise_connection == origin_connection:
+                    # Skip parent connection.
                     continue
                 next_group = group if sign == 1 else 1 - group
                 stack.append((neighbour, next_group, pairwise_connection))
         return False
 
-    time_spent = lambda i: print(f"{i if i else ''} {time.perf_counter() - t0:.3f} s") if verbose else lambda : None
-    t0 = time.perf_counter()
     for i in range(n):
         if impossible_to_bipartition(i):
-            time_spent("Unbalanced")
             return False
-        if i % 100 == 0:
-            time_spent(i)
-    time_spent("Balanced")
     return True
 

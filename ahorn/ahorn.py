@@ -2,7 +2,6 @@ import numpy as np
 import house_committees
 import senate_committees
 import senate_bills
-import hypergraph_algebra as hga
 
 
 R = 'Republican'

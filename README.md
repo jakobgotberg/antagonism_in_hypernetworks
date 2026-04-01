@@ -1,3 +1,11 @@
 # Msc Thesis: An analysis of antagonism in hypernetworks
-Erdos_Renyi.py measures antagonism in random hypergraphs, using the tensor adjacency defined in Battiston et al.'s survey.<br>
-Shi_Brzozowski.py does the same for hypergraphs using the Incidence matrix.
+## Hypergraphs
+Run *measure_synthetic_hypergraphs.py* to generate and measure oriented hypergraphs.
+## Pair-wise graphs
+Run *measure_synthetic_pairwise.py* to generate and measure signed graphs.
+## Real-world hypergraphs.
+The *ahorn* directory holds data from political datasets, taken from AHORN.
+## Graphics
+The *visuals* directory holds jupyter files.
+## utils
+hypergraph_algebra.py, matrix_utils.py, utils.py
