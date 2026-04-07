@@ -48,6 +48,9 @@ def positive(B):
     assert isinstance(B, np.ndarray)
     return (B > 0).all()
 
+def nonnegative(B):
+    assert isinstance(B, np.ndarray)
+    return (B >= 0).all()
 
 def Laplacian(A):
     '''
@@ -116,8 +119,8 @@ def normalized_pairwise_adjacency(A):
 def row_stochastic(B):
     if not nonnegative(B):
         return False
-    One = np.ones(B.shape[1])
-    return True if all(B @ One) == all(One) else False
+    m = B.shape[1]
+    return True if np.all(B @ np.ones(m) == np.ones(m)) else False
 
 '''
     Not in use
@@ -125,10 +128,6 @@ def row_stochastic(B):
 
 def matrix_power_sum(B, power):
     return _matrix_power_sum(B, 1, power)
-
-def nonnegative(B):
-    assert isinstance(B, np.ndarray)
-    return (B >= 0).all()
 
 def convergent(B):
     return rho(B) < 1
