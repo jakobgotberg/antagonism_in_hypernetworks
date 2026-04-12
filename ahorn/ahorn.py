@@ -17,7 +17,7 @@ def wang_degree_balance(L, allowed_error = 0.01):
     G must be connected.
     '''
     assert L.shape[0] == L.shape[1], "L is not a square matrix"
-    rho = sorted(np.linalg.svdvals( np.abs(L) ))[-1]
+    rho = sorted(np.linalg.svd( np.abs(L), compute_uv=False))[-1]
     eigs = sorted(np.linalg.eigvals(L))[-1]
     close = True if any(np.abs(rho - e) <= allowed_error for e in eigs) else False
     print(f"close: {rho - eigs[-1]:.3f}" if close else f"not close: {rho - eigs[-1]}")

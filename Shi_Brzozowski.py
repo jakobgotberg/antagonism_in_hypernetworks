@@ -1,4 +1,4 @@
-import time,argparse,sys,itertools,copy, random
+import time,argparse,sys,random
 import numpy as np
 import matrix_utils as mu
 import hypergraph_algebra as hga
@@ -19,7 +19,6 @@ def generate_hypergraphs(n, pr, m=None, edges=[2,3]):
     m = n if m is None else m
     edges = [0] + edges
     weights = [1-pr if e == 0 else pr/len(edges) for e in edges]
-    rng = np.random.default_rng(time.thread_time_ns())
 
     inc = 0.05
     roof = 1 + inc
@@ -55,8 +54,6 @@ def main():
     p = argparse.ArgumentParser(exit_on_error=True)
     p.add_argument("--nodes", type=int, default=12)
     p.add_argument("--prob", type=float, default=0.6)
-    p.add_argument("--normal",action=argparse.BooleanOptionalAction, default=False)
-    p.add_argument("--abs",action=argparse.BooleanOptionalAction, default=False)
     p.add_argument("--edges", type=int, nargs="+", default=[2,3])
     a = p.parse_args()
     Incidences = generate_hypergraphs(a.nodes, a.prob, a.edges)

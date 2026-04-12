@@ -1,6 +1,5 @@
 import numpy as np
 import matrix_utils as mu
-import networkx as nx
 
 def generate_graphs(n, pr, cyclic=False):
     '''
@@ -13,20 +12,21 @@ def generate_graphs(n, pr, cyclic=False):
 
     As = []
     for antagonism in np.arange(0.0, 1+0.1, 0.05):
-        attempt = 1
+
         while True:
             A = np.triu((np.random.rand(n,n) < pr).astype(np.int64), k=1) * \
                     np.sign(np.triu(np.random.rand(n,n) - antagonism)).astype(np.int64)
             A = A + A.T
 
-            # irreducible and not False <=> irreducible
-            # or, if graph must be cyclic, irreducible and not a tree
-            if mu.irreducible(np.abs(A)) and not (nx.is_tree(nx.from_numpy_array(np.abs(A))) if cyclic else False):
-                assert (A == A.T).all()
+            # If |E| == n-1, G is a tree.
+            Q = mu.get_E(A) != n-1 if cyclic == True else True
+
+            if mu.irreducible(np.abs(A)) and Q:
                 break
             # Try again if graph is not irreducible, i.e., not connected.
 
         As.append(A)
 
+    assert (A == A.T).all()
     assert np.isin(np.unique(As), [-1,0,1]).all(), f"Contains: {np.unique(As)}"
     return As

@@ -1,5 +1,4 @@
-import time,sys
-import random, itertools
+import time,sys, random, itertools
 from collections import defaultdict
 import matrix_utils as mu
 import numpy as np
@@ -8,39 +7,6 @@ import numpy as np
     Measurements on signed hypergraphs ans signed graphs.
 '''
 
-def normal_algebraic_conflict(H):
-    '''
-    Algebraic conflict on the (normalized) adjacency matrix.
-    From Aref et al.
-    '''
-    assert (np.diag(H) == 0).all(), "Not an adjacency matrix"
-    degrees = sorted((H != 0).astype(np.int64) @ np.ones(H.shape[0]))
-    d_max = (degrees[-1] + degrees[-2]) / 2
-
-    return algebraic_conflict(H) / (d_max -1)
-
-def algebraic_conflict(H):
-    '''
-    Algebraic conflict on the (normalized) adjacency matrix.
-    '''
-    assert (np.diag(H) == 0).all(), "Not an adjacency matrix"
-    return mu.rho(H)
-
-def normal_FI(H):
-    '''
-    From Aref et al.
-    '''
-    number_of_edges = np.sum(np.triu( (H != 0).astype(np.int64) ))
-    return FI(H) / (number_of_edges)
-
-def FI(H):
-    '''
-    Find S through brute forcing all elements: s in {-1,1}^n
-    The returned value is normalized.
-    '''
-    n = H.shape[0]
-    fi = lambda S : np.ones(n) @ (np.abs(H) - (S @ H @ S)) @ np.ones(n)
-    return min([fi(np.diag(s)) for s in itertools.product([-1,1], repeat=n)])
 
 def maximum_balance(I, verbose=False):
     n, m = I.shape
@@ -84,7 +50,7 @@ def maxsvd_is_closest(M):
     Asserts if the max absolute single value is closest to the max single value
     of L.
     '''
-    svds = sorted(np.linalg.svdvals(M))
+    svds = sorted(np.linalg.svd(M, compute_uv=False))
     max_sv = svds[-1]
     max_abs_svd = mu.max_svd(np.abs(M))
     return max_sv == min(svds, key=lambda z: abs(z - max_abs_svd))

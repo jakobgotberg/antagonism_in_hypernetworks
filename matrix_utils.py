@@ -14,6 +14,12 @@ cp = copy.deepcopy
 def square(B):
     return True if B.shape[0] == B.shape[1] else False
 
+def get_E(A):
+    assert isinstance(A, np.ndarray)
+    E = np.sum(np.triu(np.abs(A), k=1) == 1)
+    return E
+
+
 def negative_edge_ratio(A):
     '''
     Ratio of negative edges and all edges.
@@ -42,7 +48,7 @@ def rho(B):
 
 def max_svd(B):
     assert isinstance(B, np.ndarray)
-    return sorted(np.linalg.svdvals(B))[-1]
+    return sorted(np.linalg.svd(B, compute_uv=False))[-1]
 
 def positive(B):
     assert isinstance(B, np.ndarray)
@@ -110,17 +116,18 @@ def normalized_pairwise_adjacency(A):
     try:
         degree_matrix =  np.diag(np.abs(A) @ np.ones(n))
         H = np.linalg.inv(degree_matrix) @ A
-        assert row_stochastic(np.abs(H))
+        assert square(H)
+        assert row_stochastic(np.abs(H)), "Not abs row stochastic"
         return H
     except np.linalg.LinAlgError:
-        print(f"Singular matrix?\n{np.diag(degree_matrix)}")
+        print(f"Sys.exit(): Singular matrix?\n{np.diag(degree_matrix)}")
         sys.exit()
 
 def row_stochastic(B):
     if not nonnegative(B):
+        print("non")
         return False
-    m = B.shape[1]
-    return True if np.all(B @ np.ones(m) == np.ones(m)) else False
+    return np.allclose(B @ np.ones(B.shape[1]), np.ones(B.shape[0]))
 
 '''
     Not in use
@@ -156,4 +163,46 @@ def primitive(A, limit=10):
         return False
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
+
+def normal_algebraic_conflict(H):
+    '''
+    Algebraic conflict on the (normalized) adjacency matrix.
+    From Aref et al.
+    '''
+    assert (np.diag(H) == 0).all(), "Not an adjacency matrix"
+    assert row_stochastic(np.abs(H)), "Not abs row stochastic"
+
+    degrees = sorted((H != 0).astype(np.int64) @ np.ones(H.shape[0]))
+    d_max = (degrees[-1] + degrees[-2]) / 2
+
+    return 1 - (algebraic_conflict(H) / (d_max -1))
+
+def algebraic_conflict(H):
+    '''
+    Algebraic conflict on the (normalized) adjacency matrix.
+    '''
+    assert (np.diag(H) == 0).all(), "Not an adjacency matrix"
+    assert row_stochastic(np.abs(H)), "Not abs row stochastic"
+    return 1 - rho(H)
+
+def normal_FI(H):
+    '''
+    From Aref et al.
+    '''
+    assert (np.diag(H) == 0).all(), "Not an adjacency matrix"
+    assert row_stochastic(np.abs(H)), "Not abs row stochastic"
+    number_of_edges = np.sum(np.triu( (H != 0).astype(np.int64) ))
+    return FI(H) / (number_of_edges)
+
+def FI(H):
+    '''
+    Find S through brute forcing all elements: s in {-1,1}^n
+    The returned value is normalized.
+    '''
+    assert (np.diag(H) == 0).all(), "Not an adjacency matrix"
+    assert row_stochastic(np.abs(H)), "Not abs row stochastic"
+    n = H.shape[0]
+    fi = lambda S : np.ones(n) @ (np.abs(H) - (S @ H @ S)) @ np.ones(n)
+    return min([fi(np.diag(s)) for s in itertools.product([-1,1], repeat=n)])
+
 
