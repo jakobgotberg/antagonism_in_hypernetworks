@@ -18,24 +18,41 @@ import utils
 '''
 
 utils.set_signal()
-G_TIMEOUT = 10
-M_TIMEOUT = 20 * 60
+G_TIMEOUT = 0.5 * 60
+M_TIMEOUT = 0.25 * 60
+MAX_CONSECUTIVE_ATTEMPTS = 4
 
 def measure(I, NP=False):
 
+    perfs = []
+
+    t_start = time.perf_counter()
+    t0 = time.perf_counter()
+
     v,e = I.shape
 
+    t0 = time.perf_counter()
     nipr = mu.negative_incidence_product_ratio(I)
+    perfs.append(time.perf_counter() - t0)
+
+
+    t0 = time.perf_counter()
     nir  = mu.negative_incidence_ratio(I)
+    perfs.append(time.perf_counter() - t0)
 
     # Fiedler of bipartite incidence, indication of how connected the graph is.
+    t0 = time.perf_counter()
     fielder_block = mu.fiedler(mu.absolute_bipartite_incidence_laplacian(I)).real
+    perfs.append(time.perf_counter() - t0)
 
     # Shi et al.
     # No need to compute this NP-Complete problem if we already know the answer.
+    t0 = time.perf_counter()
     mb = hga.maximum_balance(I) if 0 < nipr else 0
+    perfs.append(time.perf_counter() - t0)
 
     # Wang et al.
+    t0 = time.perf_counter()
     M = I.T
     L = M.T @ M
     L_abs = np.abs(M.T) @ np.abs(M)
@@ -43,9 +60,16 @@ def measure(I, NP=False):
     rho_abs     = mu.rho(L_abs).real
     svd_sigma   = mu.max_svd(M).real
     svd_abs     = mu.max_svd(np.abs(M)).real
+    perfs.append(time.perf_counter() - t0)
+    
+    t_end = time.perf_counter()
+
+
+    performance = [t / (t_end - t0) for t in perfs]
+
 
     return {"V": v, "E": e, "FB": fielder_block,"NIPR": nipr, "NIR": nir, "MB": mb, "rho_sigma": rho_sigma,
-            "rho_abs": rho_abs, "svd_sigma": svd_sigma, "svd_abs": svd_abs}
+            "rho_abs": rho_abs, "svd_sigma": svd_sigma, "svd_abs": svd_abs}, performance
 
 def assert_spectrum(I):
 
@@ -61,7 +85,7 @@ def main(pid):
     p = argparse.ArgumentParser()
     p.add_argument("--rounds", type=int, default=8)
     p.add_argument("--V", type=int, nargs="+", default=[8,16])
-    p.add_argument("--file-name", default="hypergraph_data")
+    p.add_argument("--file-name", default="oriented_hypergraph_data")
     p.add_argument("--verbose",action="store_true")
     a = p.parse_args()
 
@@ -76,6 +100,7 @@ def main(pid):
         pass
 
     data = []
+    clockings = []
     for ix in range(1, a.rounds+1):
         n = random.randint(a.V[0], a.V[1]) if len(a.V) == 2 else a.V[0]
         n_cardinalities = random.randint(1, n-1)
@@ -95,25 +120,36 @@ def main(pid):
 
         round_str = f"\t\tRound {ix} of {a.rounds}: |V| = {n}, |E| = {m}, cardinalities = {cardinalities}"
         try:
-            t0 = time.perf_counter()
             utils.start_timer(G_TIMEOUT)
-            Is = Shi_Brzozowski.generate_hypergraphs(n, m, cardinalities)
+            Is = Shi_Brzozowski.generate_hypergraphs(n, m, cardinalities, increment=0.2)
             utils.cancel_timer()
         except utils.TimeoutExpired:
             utils.feedback("Generation Timeout:" + round_str, a.verbose)
             continue
 
-        try:
-            t0 = time.perf_counter()
-            utils.start_timer(M_TIMEOUT)
-            for I in Is:
-                assert_spectrum(I)
-                data.append(measure(I))
-            utils.cancel_timer()
-        except utils.TimeoutExpired:
-            utils.feedback("Measurement Timeout:" + round_str, a.verbose)
-            continue
+        consecutive_failed_attempts = 0
+        for I in Is:
+            if consecutive_failed_attempts > MAX_CONSECUTIVE_ATTEMPTS:
+                utils.feedback("Measurement, Max Attempts:" + round_str, a.verbose)
+                break
 
+            assert_spectrum(I)
+            try:
+                utils.start_timer(M_TIMEOUT)
+                measurements, perfs = measure(I)
+                data.append(measurements)
+                clockings.append(clockings)
+                utils.cancel_timer()
+                consecutive_failed_attempts = 0
+            except utils.TimeoutExpired:
+                utils.feedback("Measurement Timeout:" + round_str, a.verbose)
+                consecutive_failed_attempts += 1
+                continue
+
+    print(len(clockings))
+    #means = np.mean(np.array(clockings), axis=0)
+
+    #print(f"{means}")
     if len(data) < 1:
         utils.feedback("No measurements", a.verbose)
         return

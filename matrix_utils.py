@@ -55,8 +55,8 @@ def negative_incidence_product_ratio(I):
     for edge in M:
         positives = np.sum(edge == 1)
         negatives = np.sum(edge == -1)
-        same += positives * negatives
-        diff += math.comb(positives, 2) + math.comb(negatives, 2)
+        diff += positives * negatives
+        same += math.comb(positives, 2) + math.comb(negatives, 2)
         
     return diff / (same + diff)
 

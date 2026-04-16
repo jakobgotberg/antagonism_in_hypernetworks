@@ -1,4 +1,4 @@
-import random, math
+import random, math, time
 import numpy as np
 import matrix_utils as mu
 
@@ -39,6 +39,7 @@ def generate_hypergraphs(n, m=None, cardinalities=[2,3], increment=0.05):
 
         while True:
             # Random selection of edges' cardinalities, each cardinality have the same probability/weight.
+            t0 = time.perf_counter()
             cards = np.array(random.choices(cardinalities, k=m), dtype=int)
             
             # Generate random lists in {-1,0,1}^n, where the number of non-zeros = the cardinality.
@@ -56,9 +57,9 @@ def generate_hypergraphs(n, m=None, cardinalities=[2,3], increment=0.05):
                 #no edges shall be identical.
                 continue
 
-            fielder_eigenvalue = mu.fiedler(mu.absolute_bipartite_incidence_laplacian(I))
-            if not np.isclose(fielder_eigenvalue, 0.0, atol=1e-9):
-                # Connected
+            A = I @ I.T
+            np.fill_diagonal(A,0)
+            if mu.irreducible(A):
                 break
             
         Is.append(I)
