@@ -13,36 +13,39 @@ import utils
 
     Measures 
         Maximum Balance (MB),
-        Maximum Switching Equivalence (MSE), 
         |rho(|L|) rho(L)| (RHO), and 
         |max_svd(|M|) - max_svd(M)| (SVD).
 '''
 
 utils.set_signal()
 G_TIMEOUT = 10
-M_TIMEOUT = 45 * 60
+M_TIMEOUT = 20 * 60
 
 def measure(I, NP=False):
 
     v,e = I.shape
 
-    # If 0 < nir < 1, computing mb or nse is a waste of cpu cycles.
-    nir = mu.negative_incidence_ratio(I)
+    nipr = mu.negative_incidence_product_ratio(I)
+    nir  = mu.negative_incidence_ratio(I)
 
     # Fiedler of bipartite incidence, indication of how connected the graph is.
     fielder_block = mu.fiedler(mu.absolute_bipartite_incidence_laplacian(I)).real
 
     # Shi et al.
-    mb = hga.maximum_balance(I) if 0 < nir < 1 else 0
+    # No need to compute this NP-Complete problem if we already know the answer.
+    mb = hga.maximum_balance(I) if 0 < nipr else 0
 
     # Wang et al.
     M = I.T
     L = M.T @ M
-    rho = hga.RHO(L).real
-    svd = hga.SVD(M).real
-    mse = hga.max_se(L) if 0 < nir < 1 else 0
+    L_abs = np.abs(M.T) @ np.abs(M)
+    rho_sigma   = mu.rho(L).real
+    rho_abs     = mu.rho(L_abs).real
+    svd_sigma   = mu.max_svd(M).real
+    svd_abs     = mu.max_svd(np.abs(M)).real
 
-    return {"V": v, "E": e, "FB": fielder_block,"NIR": nir, "MB": mb, "RHO": rho, "SVD": svd, "MSE": mse}
+    return {"V": v, "E": e, "FB": fielder_block,"NIPR": nipr, "NIR": nir, "MB": mb, "rho_sigma": rho_sigma,
+            "rho_abs": rho_abs, "svd_sigma": svd_sigma, "svd_abs": svd_abs}
 
 def assert_spectrum(I):
 
@@ -62,6 +65,7 @@ def main(pid):
     p.add_argument("--verbose",action="store_true")
     a = p.parse_args()
 
+
     assert len(a.V) == 2 or len(a.V) == 1
     if len(a.V) == 2:
         assert a.V[0] <= a.V[1]
@@ -71,21 +75,29 @@ def main(pid):
         # Check that file is writable before the computation.
         pass
 
-    rounds = a.rounds
     data = []
-    # n + m has to be small, as hga.max_se is in O(2^{n+m}).
-    for ix in range(1,rounds+1):
+    for ix in range(1, a.rounds+1):
         n = random.randint(a.V[0], a.V[1]) if len(a.V) == 2 else a.V[0]
-        m = random.randint( math.ceil((1/2) * n ), math.ceil(n))
-        pr = 1.0
-        n_types_edges = random.randint(1,n-3)
-        edges = sorted(random.sample(range(3, n + 1), n_types_edges))
+        n_cardinalities = random.randint(1, n-1)
+        cardinalities = sorted(random.sample(range(2, n + 1), n_cardinalities))
 
-        round_str = f"\t\tRound {ix} of {rounds}: |V| = {n}, |E| = {m}, edges = {edges}"
+        # m most be dependent on n, e.g., if n = 2, m can only be 1
+        # This will follow some theorem in set theory no doubt.
+
+        largest_number_of_possible_edges = sum(math.comb(n,c) for c in cardinalities)
+        largest_card = cardinalities[-1]
+        lowest_connected_hypergraph = math.ceil( (n-1) / (largest_card-1) ) # Not true for non-uniform graph, but at least 
+                                                                            # it possible that a hypergraph can always generated.
+
+        math.ceil((1/2) * n ) # Not true, but it's difficult to compute.
+
+        m = random.randint(lowest_connected_hypergraph, largest_number_of_possible_edges)
+
+        round_str = f"\t\tRound {ix} of {a.rounds}: |V| = {n}, |E| = {m}, cardinalities = {cardinalities}"
         try:
             t0 = time.perf_counter()
             utils.start_timer(G_TIMEOUT)
-            Is = Shi_Brzozowski.generate_hypergraphs(n, pr, m, edges)
+            Is = Shi_Brzozowski.generate_hypergraphs(n, m, cardinalities)
             utils.cancel_timer()
         except utils.TimeoutExpired:
             utils.feedback("Generation Timeout:" + round_str, a.verbose)

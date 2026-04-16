@@ -1,7 +1,5 @@
-import math, signal, itertools, random, copy, sys
+import math, signal, itertools, random, sys
 import numpy as np
-import numpy.linalg as linalg
-cp = copy.deepcopy
 
 '''
     Matrices and some matrix algebra.
@@ -42,8 +40,30 @@ def negative_incidence_ratio(I):
 
     return np.sum(I == -1) / np.sum(np.abs(I))
 
+def negative_incidence_product_ratio(I):
+    '''
+    Ratio of different pair-wise incidence relations.
+
+    Per edge:
+        # different sign = #positives * #negatives
+        # same sign = binom(#positives, 2) + binom(#negatives, 2)
+    '''
+    M = I.T
+    same = 0
+    diff = 0
+
+    for edge in M:
+        positives = np.sum(edge == 1)
+        negatives = np.sum(edge == -1)
+        same += positives * negatives
+        diff += math.comb(positives, 2) + math.comb(negatives, 2)
+        
+    return diff / (same + diff)
+
+
 def rho(B):
     assert isinstance(B, np.ndarray)
+    assert positive_semidefinite(B)
     return sorted(np.linalg.eigvals(B))[-1]
 
 def max_svd(B):
@@ -95,6 +115,11 @@ def fiedler(L):
     assert square(L), "Not a Laplacian"
     return sorted(np.linalg.eigvals(L))[1]
 
+def positive_semidefinite(B):
+    assert square(B)
+    assert all(e >= -1e-10 for e in np.linalg.eigvals(B))
+    return True
+
 def irreducible(B):
     return positive( _matrix_power_sum(B, 0, B.shape[0]-1) )
 
@@ -106,7 +131,7 @@ def _matrix_power_sum(B, start, end):
     n = B.shape[0]
     S = np.zeros((n,n))
     for k in range(start, end+1):
-        S += linalg.matrix_power(B, k)
+        S += np.linalg.matrix_power(B, k)
     return S
 
 def normalized_pairwise_adjacency(A):
@@ -143,6 +168,7 @@ class Timeout(Exception):
     pass
 def timeout_handler(signum, frame):
     raise Timeout
+
 def primitive(A, limit=10):
     '''
     An algorithm only checking 'primitivety' using the definition
@@ -154,7 +180,7 @@ def primitive(A, limit=10):
     try:
         k = 1
         while True:
-            B = linalg.matrix_power(A,k)
+            B = np.linalg.matrix_power(A,k)
             if (B > 0).all():
                 return True
             k += 1

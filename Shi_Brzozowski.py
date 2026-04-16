@@ -1,69 +1,68 @@
-import time,argparse,sys,random
+import random, math
 import numpy as np
 import matrix_utils as mu
-import hypergraph_algebra as hga
 
-def generate_hypergraphs(n, pr, m=None, edges=[2,3]):
+def generate_hypergraphs(n, m=None, cardinalities=[2,3], increment=0.05):
     '''
     Genereate Shi Brzozowski type hypergraphs.
-    'n' is |V|
-    'pr' is the edge probability.
-    'm' is |E|
-    'edges' are the possible hyperedge cardinalities.
+    'n' is |V|.
+    'm' is |E|.
+    'cardinalities' are the possible hyperedge cardinalities.
+    'increment' is the increment of antagonism per iteration.
+
+    Run program with a timeout if using m << n, 
+        especially if forall c in cardinalities, c << n and m << n.
     '''
-    assert n >= 3, "n too small"
-    assert pr >= 0.0, "probability must be non-negative"
+    LARGEST_ANTAGONISM = 0.5
+
+    assert isinstance(n, int) and n >= 3
+    assert isinstance(increment, float) and 0.0 < increment < LARGEST_ANTAGONISM
+
+    assert isinstance(cardinalities, list) and cardinalities is not [] and \
+        all(isinstance(c, int) for c in cardinalities) and \
+        len(cardinalities) == len(set(cardinalities)) and \
+        all(2 <= c <= n for c in cardinalities)
+
+    m = n if m is None else m
+    largest_number_of_possible_edges = sum(math.comb(n,c) for c in cardinalities)
+    assert isinstance(m, int) and 0 < m <= largest_number_of_possible_edges, f"{m} > {largest_number_of_possible_edges}. |V| = {n}, cards = {cardinalities}"
+    # The size of m = |E| must be larger than some value related to n = |V| for the graph to be
+    #   connected, but this is not straightforward to compute when len(cardinalities) != 1.
+
+    # The program should be used with a timer, see utils.py, where the generation is 
+    #   canceled if it takes too long, i.e., if it is impossible to generate a graph with the
+    #   given arguments.
 
     Is = []
-    k = max(edges)
-    m = n if m is None else m
-    edges = [0] + edges
-    weights = [1-pr if e == 0 else pr/len(edges) for e in edges]
+    roof = LARGEST_ANTAGONISM + increment
+    for antagonism in np.arange(0.0, roof, increment):
 
-    inc = 0.05
-    roof = 1 + inc
-    for antagonism in np.arange(0.0, roof, inc):
         while True:
-            c = np.array(random.choices(edges, weights=weights, k=m),dtype=int) * np.sign((np.random.rand(m) - antagonism)).astype(np.int8)
-            I = np.zeros((n,m),dtype=int)
-            for ix,k in enumerate(c):
-                col = np.zeros(n)
-                for e in np.array(np.random.choice(range(n),size=abs(k), replace=False)):
-                    col[e] = random.choices([-1,1], k=1, weights=[antagonism, 1-antagonism])[0]
-                I[:,ix] = col
-        
-            # Remove all zero columns
-            cols_removed = sum(np.all(I == 0, axis=0))
-            I = I[:, ~np.all(I == 0, axis=0)]
+            # Random selection of edges' cardinalities, each cardinality have the same probability/weight.
+            cards = np.array(random.choices(cardinalities, k=m), dtype=int)
+            
+            # Generate random lists in {-1,0,1}^n, where the number of non-zeros = the cardinality.
+            edges = []
+            for c in cards:
+                edge = np.zeros(n, dtype=int)
+                random_vertex_gen = np.random.choice(range(n), size=c, replace=False)
+                for e in np.array(random_vertex_gen):
+                    edge[e] = random.choices([-1,1], k=1, weights=[antagonism, 1-antagonism])[0]
+                edges.append(edge)
 
-            # I have to check that it's connected.
-            es = I.shape[1]
+            I = np.array(edges).T
+
+            if not np.unique(abs(I), axis=1).shape[1] == I.shape[1]:
+                #no edges shall be identical.
+                continue
+
             fielder_eigenvalue = mu.fiedler(mu.absolute_bipartite_incidence_laplacian(I))
-            if not np.isclose(fielder_eigenvalue, 0.0, atol=1e-9) and np.unique(abs(I), axis=1).shape[1] == es-cols_removed:
-                # Connected and not a multigraph
+            if not np.isclose(fielder_eigenvalue, 0.0, atol=1e-9):
+                # Connected
                 break
             
         Is.append(I)
 
-    assert np.isin(np.unique(Is), [-1,0,1]).all(), f"Is contains: {np.unique(Is)}"
+    assert np.isin(np.unique(Is), [-1,0,1]).all(), f"The matrices contains illegal entires: {np.unique(Is)}"
     return Is
 
-    
-def main():
-
-    p = argparse.ArgumentParser(exit_on_error=True)
-    p.add_argument("--nodes", type=int, default=12)
-    p.add_argument("--prob", type=float, default=0.6)
-    p.add_argument("--edges", type=int, nargs="+", default=[2,3])
-    a = p.parse_args()
-    Incidences = generate_hypergraphs(a.nodes, a.prob, a.edges)
-    for I in Incidences:
-        print(I)
-        print(f"Balanced: {hga.balanced_incidence(I)}")
-
-
-if __name__ == "__main__":
-    t0 = time.perf_counter()
-    main()
-    t1 = time.perf_counter() - t0
-    print(f"\n --- Total runtime: {t1:.3f}")
