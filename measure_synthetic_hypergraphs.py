@@ -40,7 +40,7 @@ def measure(I, NP=False):
 
     # Fiedler of bipartite incidence, indication of how connected the graph is.
     t0 = time.perf_counter()
-    fielder = mu.fiedler(hga.incidence_to_abs_pairwise_adjacency(I))
+    fielder = mu.fiedler(mu.absolute_bipartite_incidence_laplacian(I)).real
     t_f = time.perf_counter() - t0
 
     # Shi et al.

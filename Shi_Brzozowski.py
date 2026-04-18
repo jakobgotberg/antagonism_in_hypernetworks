@@ -1,8 +1,17 @@
-import random, math, collections
+import random, collections
 import numpy as np
 import matrix_utils as mu
 import utils
 
+
+def comb(n, k):
+    if k < 0 or k > n:
+        return 0
+    k = min(k, n - k)
+    result = 1
+    for i in range(1, k + 1):
+        result = result * (n - k + i) // i
+    return result
 
 def unique_hyperedges(n, cards_of_edges, antagonism, rng):
     '''
@@ -10,14 +19,13 @@ def unique_hyperedges(n, cards_of_edges, antagonism, rng):
     Not necessarily connected. 
     '''
 
-    assert isinstance(rng, np.random._generator.Generator)
     assert isinstance(cards_of_edges, np.ndarray)
     assert isinstance(n, int) and n > 0
     assert 0 <= antagonism <= 1.0
 
     def unrank(n, cardinality, rank):
         '''
-        Each rank represent a combinations in math.comb(n, cardinality),
+        Each rank represent a combinations in comb(n, cardinality),
         each rank is a unique hyperedge of a given cardinality.
 
         k := cardinality
@@ -27,7 +35,7 @@ def unique_hyperedges(n, cards_of_edges, antagonism, rng):
         ...
         (v_k, v_{k+1}, v_{k+2}, ..., v_{n-1}, v_n) -> rank_m
 
-        m := math.comb(n, cardinality) -1
+        m := comb(n, cardinality) -1
 
         unrank() takes the given rank and returns the hyperedge.
 
@@ -50,7 +58,7 @@ def unique_hyperedges(n, cards_of_edges, antagonism, rng):
         for vertices_remaining in range(cardinality, 0, -1):
 
             for v in range(vertex, n):
-                combination_id = math.comb(n - v - 1, vertices_remaining - 1)
+                combination_id = comb(n - v - 1, vertices_remaining - 1)
                 if rank < combination_id:
                     vertices_in_edge.append(v)
                     vertex = v + 1
@@ -67,7 +75,7 @@ def unique_hyperedges(n, cards_of_edges, antagonism, rng):
 
         # The support of a vector is the number of combinations we can get 
         # with its non-zero elements.
-        total_supports = math.comb(n, card)
+        total_supports = comb(n, card)
         assert count <= total_supports, f"Impossible to generate {count} unique edges with card = {card} when |V| = {n}."
 
         # Rows where there shall be card vertices.
@@ -105,12 +113,14 @@ def generate_hypergraphs(n, cardinalities=[2,3], increment=0.05):
     assert isinstance(n, int) and n >= 3
     assert isinstance(increment, float) and 0.0 < increment < LARGEST_ANTAGONISM
 
-    assert isinstance(cardinalities, list) and cardinalities is not [] and \
+    assert isinstance(cardinalities, list) and len(cardinalities) > 0 and \
         all(isinstance(c, int) for c in cardinalities) and \
         len(cardinalities) == len(set(cardinalities)) and \
         all(2 <= c <= n for c in cardinalities)
 
-    largest_number_of_possible_edges = sum(math.comb(n,c) for c in cardinalities)
+    largest_number_of_possible_edges = sum(comb(n,c) for c in cardinalities)
+    largest_number_of_possible_edges = 20 if largest_number_of_possible_edges > 20 \
+            else largest_number_of_possible_edges
     #largest_card = cardinalities[-1]
     #lowest_connected_hypergraph = math.ceil( (n-1) / (largest_card-1) ) 
 
@@ -128,7 +138,7 @@ def generate_hypergraphs(n, cardinalities=[2,3], increment=0.05):
                 # Can't create connected hypergraph.
                 continue
 
-            if not np.all([count <= math.comb(n, card) for card, count in collections.Counter(cards_of_edges).items()]):
+            if not np.all([count <= comb(n, card) for card, count in collections.Counter(cards_of_edges).items()]):
                 # Can't create edges of cardinality and quantity.
                 continue
 
@@ -146,5 +156,6 @@ def generate_hypergraphs(n, cardinalities=[2,3], increment=0.05):
 
     for I in Is:
         assert np.isin(np.unique(I), [-1,0,1]).all(), f"The matrices contains illegal entires: {np.unique(Is)}"
+    print(f"|E| = {m}")
     return Is
 
