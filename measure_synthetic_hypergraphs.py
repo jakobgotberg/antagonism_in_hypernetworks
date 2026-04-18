@@ -1,4 +1,5 @@
 import random, argparse, time, math, csv, os
+import statistics
 import Shi_Brzozowski
 import numpy as np
 import hypergraph_algebra as hga
@@ -19,37 +20,33 @@ import utils
 
 utils.set_signal()
 G_TIMEOUT = 0.5 * 60
-M_TIMEOUT = 0.25 * 60
+M_TIMEOUT = 5 * 60
 MAX_CONSECUTIVE_ATTEMPTS = 4
 
 def measure(I, NP=False):
 
-    perfs = []
-
     t_start = time.perf_counter()
-    t0 = time.perf_counter()
 
     v,e = I.shape
 
     t0 = time.perf_counter()
     nipr = mu.negative_incidence_product_ratio(I)
-    perfs.append(time.perf_counter() - t0)
+    t_nipr = time.perf_counter() - t0
 
 
     t0 = time.perf_counter()
     nir  = mu.negative_incidence_ratio(I)
-    perfs.append(time.perf_counter() - t0)
+    t_nir = time.perf_counter() - t0
 
     # Fiedler of bipartite incidence, indication of how connected the graph is.
     t0 = time.perf_counter()
-    fielder_block = mu.fiedler(mu.absolute_bipartite_incidence_laplacian(I)).real
-    perfs.append(time.perf_counter() - t0)
+    fielder = mu.fiedler(hga.incidence_to_abs_pairwise_adjacency(I))
+    t_f = time.perf_counter() - t0
 
     # Shi et al.
-    # No need to compute this NP-Complete problem if we already know the answer.
     t0 = time.perf_counter()
-    mb = hga.maximum_balance(I) if 0 < nipr else 0
-    perfs.append(time.perf_counter() - t0)
+    mb = hga.maximum_balance(I)
+    t_mb = time.perf_counter() - t0
 
     # Wang et al.
     t0 = time.perf_counter()
@@ -60,16 +57,17 @@ def measure(I, NP=False):
     rho_abs     = mu.rho(L_abs).real
     svd_sigma   = mu.max_svd(M).real
     svd_abs     = mu.max_svd(np.abs(M)).real
-    perfs.append(time.perf_counter() - t0)
+    t_wang = time.perf_counter() - t0
     
-    t_end = time.perf_counter()
+    t_total = time.perf_counter() - t_start
 
 
-    performance = [t / (t_end - t0) for t in perfs]
+    perfs =  {"NIPR": t_nipr/t_total , "NIR": t_nir/t_total, "F": t_f/t_total,  "MB": t_mb/t_total, "wang": t_wang/t_total }
 
+    scores =  {"V": v, "E": e, "F": fielder,"NIPR": nipr, "NIR": nir, "MB": mb, "rho_sigma": rho_sigma,
+            "rho_abs": rho_abs, "svd_sigma": svd_sigma, "svd_abs": svd_abs}
 
-    return {"V": v, "E": e, "FB": fielder_block,"NIPR": nipr, "NIR": nir, "MB": mb, "rho_sigma": rho_sigma,
-            "rho_abs": rho_abs, "svd_sigma": svd_sigma, "svd_abs": svd_abs}, performance
+    return scores, perfs
 
 def assert_spectrum(I):
 
@@ -87,6 +85,7 @@ def main(pid):
     p.add_argument("--V", type=int, nargs="+", default=[8,16])
     p.add_argument("--file-name", default="oriented_hypergraph_data")
     p.add_argument("--verbose",action="store_true")
+    p.add_argument("--chatty",action="store_true")
     a = p.parse_args()
 
 
@@ -106,22 +105,13 @@ def main(pid):
         n_cardinalities = random.randint(1, n-1)
         cardinalities = sorted(random.sample(range(2, n + 1), n_cardinalities))
 
-        # m most be dependent on n, e.g., if n = 2, m can only be 1
-        # This will follow some theorem in set theory no doubt.
+        round_str = f"\t\tRound {ix} of {a.rounds}: |V| = {n}, cardinalities = {cardinalities}"
+        if a.chatty:
+            print(round_str)
 
-        largest_number_of_possible_edges = sum(math.comb(n,c) for c in cardinalities)
-        largest_card = cardinalities[-1]
-        lowest_connected_hypergraph = math.ceil( (n-1) / (largest_card-1) ) # Not true for non-uniform graph, but at least 
-                                                                            # it possible that a hypergraph can always generated.
-
-        math.ceil((1/2) * n ) # Not true, but it's difficult to compute.
-
-        m = random.randint(lowest_connected_hypergraph, largest_number_of_possible_edges)
-
-        round_str = f"\t\tRound {ix} of {a.rounds}: |V| = {n}, |E| = {m}, cardinalities = {cardinalities}"
         try:
             utils.start_timer(G_TIMEOUT)
-            Is = Shi_Brzozowski.generate_hypergraphs(n, m, cardinalities, increment=0.2)
+            Is = Shi_Brzozowski.generate_hypergraphs(n, cardinalities)
             utils.cancel_timer()
         except utils.TimeoutExpired:
             utils.feedback("Generation Timeout:" + round_str, a.verbose)
@@ -138,7 +128,7 @@ def main(pid):
                 utils.start_timer(M_TIMEOUT)
                 measurements, perfs = measure(I)
                 data.append(measurements)
-                clockings.append(clockings)
+                clockings.append(perfs)
                 utils.cancel_timer()
                 consecutive_failed_attempts = 0
             except utils.TimeoutExpired:
@@ -146,13 +136,14 @@ def main(pid):
                 consecutive_failed_attempts += 1
                 continue
 
-    print(len(clockings))
-    #means = np.mean(np.array(clockings), axis=0)
-
-    #print(f"{means}")
     if len(data) < 1:
         utils.feedback("No measurements", a.verbose)
         return
+
+    for key in clockings[0]:
+        metric = [row[key] for row in clockings]
+        print(f" {key}\t mean: {statistics.mean(metric):.3f}\t  \
+              median: {statistics.median(metric):.3f}")
 
     with open(file_name,"a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=data[0].keys() )

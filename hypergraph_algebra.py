@@ -8,11 +8,9 @@ import numpy as np
 '''
 
 
-def maximum_balance(I, verbose=False):
+def maximum_balance(I):
     n, m = I.shape
     for k in range(m + 1):
-        if verbose:
-            print(f"|E'| = {k}")
         for deleted_set in itertools.combinations(range(m), k):
             if balanced_incidence(np.delete(I,deleted_set,axis=1)):
                 return k
@@ -35,6 +33,14 @@ def SVD(M):
     max_svd = mu.max_svd(M)
     return abs(max_abs_svd - max_svd)
 
+def incidence_to_abs_pairwise_adjacency(I):
+    '''
+    Returns the pair-wise adjacency representation. 
+    '''
+    A = np.abs(I) @ np.abs(I).T
+    np.fill_diagonal(A,0)
+    return A
+
 def rho_is_closest(L):
     '''
     Asserts if rho(|L|) is closest to rho(L)
@@ -43,7 +49,8 @@ def rho_is_closest(L):
     eigs = sorted(np.linalg.eigvals(L))
     rho = eigs[-1]
     abs_rho = mu.max_svd(np.abs(L))
-    return rho == min(eigs, key=lambda z: abs(z - abs_rho))
+    return rho == min(eigs, key=lambda z: abs(z - abs_rho)) and \
+            (abs_rho - rho).real < 1e-9, f"{abs_rho}, {rho}"
 
 def maxsvd_is_closest(M):
     '''
@@ -53,7 +60,8 @@ def maxsvd_is_closest(M):
     svds = sorted(np.linalg.svd(M, compute_uv=False))
     max_sv = svds[-1]
     max_abs_svd = mu.max_svd(np.abs(M))
-    return max_sv == min(svds, key=lambda z: abs(z - max_abs_svd))
+    return max_sv == min(svds, key=lambda z: abs(z - max_abs_svd)) and \
+        (max_abs_svd - max_sv).real < 1e-9, f"{max_abs_svd}, {max_sv}"
 
 def max_se(M):
     '''
