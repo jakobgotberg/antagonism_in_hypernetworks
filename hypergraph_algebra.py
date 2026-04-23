@@ -1,5 +1,4 @@
-import time,sys, random, itertools
-from collections import defaultdict
+import itertools, collections
 import matrix_utils as mu
 import numpy as np
 
@@ -9,7 +8,7 @@ import numpy as np
 
 
 def maximum_balance(I):
-    n, m = I.shape
+    _, m = I.shape
     for k in range(m + 1):
         for deleted_set in itertools.combinations(range(m), k):
             if balanced_incidence(np.delete(I,deleted_set,axis=1)):
@@ -43,25 +42,29 @@ def incidence_to_abs_pairwise_adjacency(I):
 
 def rho_is_closest(L):
     '''
-    Asserts if rho(|L|) is closest to rho(L)
+    Asserts if rho(|L|) is closest to rho(L) and that
+    rho(|L|) is larger than or equal to rho(L), within floating point
+    approximation error.
     '''
     assert L.shape[0] == L.shape[1], f"L is not a square matrix"
     eigs = sorted(np.linalg.eigvals(L))
     rho = eigs[-1]
     abs_rho = mu.max_svd(np.abs(L))
-    return rho == min(eigs, key=lambda z: abs(z - abs_rho)) and \
-            (abs_rho - rho).real < 1e-9, f"{abs_rho}, {rho}"
+    assert rho == min(eigs, key=lambda z: abs(z - abs_rho)), f"{eigs} --- {rho}:{abs_rho}"
+    assert (rho - abs_rho).real < 1e-9, f"{rho}, {abs_rho}"
 
 def maxsvd_is_closest(M):
     '''
-    Asserts if the max absolute single value is closest to the max single value
-    of L.
+    Asserts if the max absolute single value (max_abs_svd) is closest to the 
+    max single value (max_svd) of L. 
+    Additionally, that max_abs_svd is larger than or equal to max_svd, 
+    within floating point approximation error.
     '''
     svds = sorted(np.linalg.svd(M, compute_uv=False))
-    max_sv = svds[-1]
+    max_svd = svds[-1]
     max_abs_svd = mu.max_svd(np.abs(M))
-    return max_sv == min(svds, key=lambda z: abs(z - max_abs_svd)) and \
-        (max_abs_svd - max_sv).real < 1e-9, f"{max_abs_svd}, {max_sv}"
+    assert max_svd == min(svds, key=lambda z: abs(z - max_abs_svd)), f"{svds} --- {max_svd}:{max_abs_svd}"
+    assert (max_svd - max_abs_svd).real < 1e-9, f"{max_svd}, {max_abs_svd}"
 
 def max_se(M):
     '''
@@ -103,7 +106,7 @@ def balanced_incidence(I):
     n, m = I.shape
 
     # One list of adjacent nodes for each node
-    signed_adj = defaultdict(list)
+    signed_adj = collections.defaultdict(list)
     # need to distinguish pairwise connection to prevent going back on the same
     # exact pairwise connection in any hyperedge in the graph traversal.
     pairwise_index = 0

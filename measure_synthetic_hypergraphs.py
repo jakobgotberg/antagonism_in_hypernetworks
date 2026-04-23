@@ -1,5 +1,4 @@
-import random, argparse, time, math, csv, os
-import statistics
+import random, argparse, time, csv, os, statistics
 import Shi_Brzozowski
 import numpy as np
 import hypergraph_algebra as hga
@@ -19,7 +18,7 @@ import utils
 '''
 
 utils.set_signal()
-G_TIMEOUT = 0.5 * 60
+G_TIMEOUT = 2 * 60
 M_TIMEOUT = 5 * 60
 MAX_CONSECUTIVE_ATTEMPTS = 4
 
@@ -72,11 +71,9 @@ def measure(I, NP=False):
 def assert_spectrum(I):
 
     M = I.T
+    hga.maxsvd_is_closest(M)
     L = M.T @ M
-
-    assert hga.rho_is_closest(L)
-    assert hga.maxsvd_is_closest(M)
-    return
+    hga.rho_is_closest(L)
 
 
 def main(pid):
@@ -86,17 +83,14 @@ def main(pid):
     p.add_argument("--file-name", default="oriented_hypergraph_data")
     p.add_argument("--verbose",action="store_true")
     p.add_argument("--chatty",action="store_true")
+    p.add_argument("--no-output",action="store_true")
     a = p.parse_args()
-
 
     assert len(a.V) == 2 or len(a.V) == 1
     if len(a.V) == 2:
         assert a.V[0] <= a.V[1]
 
     file_name = a.file_name + "-PID-" + pid + ".csv"
-    with open(file_name, "a"):
-        # Check that file is writable before the computation.
-        pass
 
     data = []
     clockings = []
@@ -145,6 +139,9 @@ def main(pid):
         print(f" {key}\t mean: {statistics.mean(metric):.3f}\t  \
               median: {statistics.median(metric):.3f}")
 
+    if a.no_output:
+        return
+
     with open(file_name,"a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=data[0].keys() )
         writer.writeheader()
@@ -152,8 +149,8 @@ def main(pid):
 
 
 if __name__ == "__main__":
-    t0 = time.perf_counter()
+    t_program_start = time.perf_counter()
     pid = str(os.getpid())
     main(pid)
-    print(f"\n{pid} Runtime: {(time.perf_counter() - t0)/60:.1f} min")
+    print(f"\n{pid} Runtime: {(time.perf_counter() - t_program_start)/60:.1f} min")
 

@@ -1,7 +1,6 @@
 import random, collections
 import numpy as np
 import matrix_utils as mu
-import utils
 
 
 def comb(n, k):
@@ -65,7 +64,7 @@ def unique_hyperedges(n, cards_of_edges, antagonism, rng):
                     break
                 rank = rank - combination_id
 
-        return np.array(vertices_in_edge)
+        return np.array(vertices_in_edge, dtype=int)
     
     m = len(cards_of_edges)
     assert sum(cards_of_edges) >= n, f"Cannot cover all vertices if {sum(cards_of_edges)} < {n}"
@@ -90,6 +89,8 @@ def unique_hyperedges(n, cards_of_edges, antagonism, rng):
             M[edge_id][vertices_in_edge] = polarities
 
     I = M.T
+
+    assert {type(j) for i in I[:] for j in i[:]} == {np.int64}, f"{n}, {cards_of_edges}, {antagonism}, {rng} - { {type(j) for i in I[:] for j in i[:]} }"
     assert np.unique(abs(I), axis=1).shape[1] == I.shape[1], "Multigraph"
     return I
 
@@ -156,6 +157,5 @@ def generate_hypergraphs(n, cardinalities=[2,3], increment=0.05):
 
     for I in Is:
         assert np.isin(np.unique(I), [-1,0,1]).all(), f"The matrices contains illegal entires: {np.unique(Is)}"
-    print(f"|E| = {m}")
     return Is
 

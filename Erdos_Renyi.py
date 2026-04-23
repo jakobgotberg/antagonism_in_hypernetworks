@@ -1,4 +1,4 @@
-import time,argparse,sys,itertools,copy
+import time, argparse, itertools
 import numpy as np
 import matrix_utils as mu
 import hypergraph_algebra as hga
