@@ -18,11 +18,12 @@ import utils
 '''
 
 utils.set_signal()
-G_TIMEOUT = 2 * 60
-M_TIMEOUT = 5 * 60
-MAX_CONSECUTIVE_ATTEMPTS = 4
+G_TIMEOUT = 20 * 60 # Default setting is to generate 20 graphs.
+M_TIMEOUT = 5  * 60 # Timeout for one graph's measurements.
+MAX_CONSECUTIVE_ATTEMPTS = 4 # If a configuration measurement timeouts consecutitvely, 
+                             # it is likely that MB is too hard to compute.
 
-def measure(I, NP=False):
+def measure(I):
 
     t_start = time.perf_counter()
 
@@ -58,12 +59,13 @@ def measure(I, NP=False):
     svd_abs     = mu.max_svd(np.abs(M)).real
     t_wang = time.perf_counter() - t0
     
+    avg_card = np.abs(M).sum() / e
     t_total = time.perf_counter() - t_start
 
 
     perfs =  {"NIPR": t_nipr/t_total , "NIR": t_nir/t_total, "F": t_f/t_total,  "MB": t_mb/t_total, "wang": t_wang/t_total }
 
-    scores =  {"V": v, "E": e, "F": fielder,"NIPR": nipr, "NIR": nir, "MB": mb, "rho_sigma": rho_sigma,
+    scores =  {"V": v, "E": e, "F": fielder, "AVG_C": avg_card, "NIPR": nipr, "NIR": nir, "MB": mb, "rho_sigma": rho_sigma,
             "rho_abs": rho_abs, "svd_sigma": svd_sigma, "svd_abs": svd_abs}
 
     return scores, perfs
@@ -89,6 +91,7 @@ def main(pid):
     assert len(a.V) == 2 or len(a.V) == 1
     if len(a.V) == 2:
         assert a.V[0] <= a.V[1]
+    assert a.V[0] > 2
 
     file_name = a.file_name + "-PID-" + pid + ".csv"
 
@@ -96,8 +99,13 @@ def main(pid):
     clockings = []
     for ix in range(1, a.rounds+1):
         n = random.randint(a.V[0], a.V[1]) if len(a.V) == 2 else a.V[0]
-        n_cardinalities = random.randint(1, n-1)
-        cardinalities = sorted(random.sample(range(2, n + 1), n_cardinalities))
+        n_cardinalities = random.randint(1, n-2)
+
+        while True:
+            cardinalities = sorted(random.sample(range(2, n), n_cardinalities))
+            if len(cardinalities) == 1 and cardinalities[0] == n:
+                continue
+            break
 
         round_str = f"\t\tRound {ix} of {a.rounds}: |V| = {n}, cardinalities = {cardinalities}"
         if a.chatty:
@@ -105,7 +113,7 @@ def main(pid):
 
         try:
             utils.start_timer(G_TIMEOUT)
-            Is = Shi_Brzozowski.generate_hypergraphs(n, cardinalities)
+            Is = Shi_Brzozowski.generate_hypergraphs(n, cardinalities, verbose=a.chatty)
             utils.cancel_timer()
         except utils.TimeoutExpired:
             utils.feedback("Generation Timeout:" + round_str, a.verbose)

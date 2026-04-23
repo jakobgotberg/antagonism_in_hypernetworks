@@ -1,16 +1,7 @@
-import random, collections
+import random, collections, math
 import numpy as np
 import matrix_utils as mu
-
-
-def comb(n, k):
-    if k < 0 or k > n:
-        return 0
-    k = min(k, n - k)
-    result = 1
-    for i in range(1, k + 1):
-        result = result * (n - k + i) // i
-    return result
+import utils
 
 def unique_hyperedges(n, cards_of_edges, antagonism, rng):
     '''
@@ -34,7 +25,7 @@ def unique_hyperedges(n, cards_of_edges, antagonism, rng):
         ...
         (v_k, v_{k+1}, v_{k+2}, ..., v_{n-1}, v_n) -> rank_m
 
-        m := comb(n, cardinality) -1
+        m := utils.comb(n, cardinality) -1
 
         unrank() takes the given rank and returns the hyperedge.
 
@@ -57,7 +48,7 @@ def unique_hyperedges(n, cards_of_edges, antagonism, rng):
         for vertices_remaining in range(cardinality, 0, -1):
 
             for v in range(vertex, n):
-                combination_id = comb(n - v - 1, vertices_remaining - 1)
+                combination_id = utils.comb(n - v - 1, vertices_remaining - 1)
                 if rank < combination_id:
                     vertices_in_edge.append(v)
                     vertex = v + 1
@@ -74,7 +65,7 @@ def unique_hyperedges(n, cards_of_edges, antagonism, rng):
 
         # The support of a vector is the number of combinations we can get 
         # with its non-zero elements.
-        total_supports = comb(n, card)
+        total_supports = utils.comb(n, card)
         assert count <= total_supports, f"Impossible to generate {count} unique edges with card = {card} when |V| = {n}."
 
         # Rows where there shall be card vertices.
@@ -94,7 +85,7 @@ def unique_hyperedges(n, cards_of_edges, antagonism, rng):
     assert np.unique(abs(I), axis=1).shape[1] == I.shape[1], "Multigraph"
     return I
 
-def generate_hypergraphs(n, cardinalities=[2,3], increment=0.05):
+def generate_hypergraphs(n, cardinalities=[2,3], increment=0.05, verbose=False):
     '''
     Genereate Shi Brzozowski type hypergraphs.
     'n' is |V|.
@@ -107,9 +98,20 @@ def generate_hypergraphs(n, cardinalities=[2,3], increment=0.05):
         canceled if it takes too long, i.e., if it is impossible to generate a graph with the
         given arguments.
 
+    The function is fine-tuned for n (:V|) in [12,22].
+
     '''
 
-    LARGEST_ANTAGONISM = 0.5
+    def sigmoid(n,):
+        min_c = 20
+        max_c = min_c + 10
+        max_  = max_c - min_c
+        min_n, max_n = 12, 22
+        middle = max_n - min_n
+
+        return math.floor( ( max_ / ( 1 + math.e**(-0.5* (n - 2*middle)) ) ) + min_c )
+
+    LARGEST_ANTAGONISM = 1.0
 
     assert isinstance(n, int) and n >= 3
     assert isinstance(increment, float) and 0.0 < increment < LARGEST_ANTAGONISM
@@ -117,29 +119,43 @@ def generate_hypergraphs(n, cardinalities=[2,3], increment=0.05):
     assert isinstance(cardinalities, list) and len(cardinalities) > 0 and \
         all(isinstance(c, int) for c in cardinalities) and \
         len(cardinalities) == len(set(cardinalities)) and \
-        all(2 <= c <= n for c in cardinalities)
+        all(2 <= c <= n for c in cardinalities), f"{cardinalities}, {n}"
 
-    largest_number_of_possible_edges = sum(comb(n,c) for c in cardinalities)
-    largest_number_of_possible_edges = 20 if largest_number_of_possible_edges > 20 \
+    if len(cardinalities) == 1 and cardinalities[0] == n:
+        print("Legal but boring graph")
+        assert False
+
+
+    largest_number_of_possible_edges = sum(utils.comb(n,c) for c in cardinalities)
+    # The largest possible |E| is too large for NP-Complete measures unless |V| is very small.
+    # The sigmoid function scales down the max to be in [20,30], scaling with |V|.
+    largest_number_of_possible_edges = sigmoid(n) if largest_number_of_possible_edges > sigmoid(n) \
             else largest_number_of_possible_edges
-    #largest_card = cardinalities[-1]
-    #lowest_connected_hypergraph = math.ceil( (n-1) / (largest_card-1) ) 
 
+    print(largest_number_of_possible_edges)
     Is = []
     roof = LARGEST_ANTAGONISM + increment
     rng = np.random.default_rng()
 
     for antagonism in np.arange(0.0, roof, increment):
         while True:
-            # Random selection of edges' cardinalities, each cardinality have the same probability/weight.
-            m = random.randint(1, largest_number_of_possible_edges)
-            cards_of_edges = np.array(random.choices(cardinalities, k=m), dtype=int)
+
+            # More probably to select higher |E|
+            t = random.randint(3, largest_number_of_possible_edges)
+            w = [2**i for i in range(3, t+2)]
+            m = random.choices(list(range(3, t+2)), weights=w, k=1)[0]
+
+            # Random selection of edges' cardinalities, smaller cardinalities are prefered to create
+            # more interesting graphs.
+            n_c = len(cardinalities)
+            w=[1.414**i for i in range(n_c, 0, -1)]
+            cards_of_edges = np.array(random.choices(cardinalities, weights=w, k=m), dtype=int)
 
             if sum(c-1 for c in cards_of_edges) < n-1:
                 # Can't create connected hypergraph.
                 continue
 
-            if not np.all([count <= comb(n, card) for card, count in collections.Counter(cards_of_edges).items()]):
+            if not np.all([count <= utils.comb(n, card) for card, count in collections.Counter(cards_of_edges).items()]):
                 # Can't create edges of cardinality and quantity.
                 continue
 
@@ -150,6 +166,9 @@ def generate_hypergraphs(n, cardinalities=[2,3], increment=0.05):
             if not mu.irreducible(A):
                 # Not connected.
                 continue
+
+            if verbose:
+                print(f"Cards: {cards_of_edges}")
 
             break
             

@@ -1,18 +1,10 @@
 import signal, itertools, sys
 import numpy as np
+import utils
 
 '''
     Matrices and some matrix algebra.
 '''
-
-def comb(n, k):
-    if k < 0 or k > n:
-        return 0
-    k = min(k, n - k)
-    result = 1
-    for i in range(1, k + 1):
-        result = result * (n - k + i) // i
-    return result
 
 '''
     In use
@@ -64,7 +56,7 @@ def negative_incidence_product_ratio(I):
         positives = np.sum(edge == 1)
         negatives = np.sum(edge == -1)
         diff += positives * negatives
-        same += comb(positives, 2) + comb(negatives, 2)
+        same += utils.comb(positives, 2) + utils.comb(negatives, 2)
         
     return diff / (same + diff)
 
