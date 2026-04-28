@@ -5,8 +5,8 @@ import matrix_utils as mu
 import utils
 
 utils.set_signal()
-G_TIMEOUT = 30
-M_TIMEOUT = 25 * 60
+G_TIMEOUT = 20  * 60
+M_TIMEOUT = 30  * 60
 
 def measure(A):
     ner = mu.negative_edge_ratio(A)
@@ -27,6 +27,7 @@ def main(pid):
     p.add_argument("--file-name", default="pairwise_data")
     p.add_argument("--verbose",action="store_true")
     p.add_argument("--cyclic",action="store_true")
+    p.add_argument("--chatty",action="store_true")
     a = p.parse_args()
 
     assert len(a.V) == 2 or len(a.V) == 1
@@ -35,9 +36,6 @@ def main(pid):
 
     cyclic_str = "-cyclic" if a.cyclic else "" 
     file_name = a.file_name + cyclic_str + "-PID-" + pid + ".csv"
-    with open(file_name, "a"):
-        # Check that file is writable before the computation.
-        pass
 
     rounds = a.rounds
     data = []
@@ -45,9 +43,10 @@ def main(pid):
         n = random.randint(a.V[0], a.V[1]) if len(a.V) == 2 else a.V[0]
         p = random.random()
         round_str = f"\t\tRound {ix} of {rounds}: |V| = {n}, pr = {p if p >= 0.1 else 0.1}"
+        if a.chatty:
+            print(round_str)
 
         try:
-            t0 = time.perf_counter()
             utils.start_timer(G_TIMEOUT)
             As = erp.generate_graphs(n, p if p >= 0.1 else 0.1, cyclic=a.cyclic)
             utils.cancel_timer()
@@ -56,11 +55,10 @@ def main(pid):
             continue
 
         try:
-            t0 = time.perf_counter()
-            utils.start_timer(M_TIMEOUT)
             for A in As:
+                utils.start_timer(M_TIMEOUT)
                 data.append(measure(A))
-            utils.cancel_timer()
+                utils.cancel_timer()
         except utils.TimeoutExpired:
             utils.feedback("Measurement Timeout" + round_str, a.verbose)
             continue

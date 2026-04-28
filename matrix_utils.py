@@ -61,9 +61,10 @@ def negative_incidence_product_ratio(I):
     return diff / (same + diff)
 
 
-def rho(B):
+def rho(B, assert_psd=False):
     assert isinstance(B, np.ndarray)
-    assert positive_semidefinite(B)
+    if assert_psd:
+        assert positive_semidefinite(B)
     return sorted(np.linalg.eigvals(B))[-1]
 
 def max_svd(B):
