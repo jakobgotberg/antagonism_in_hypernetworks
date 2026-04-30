@@ -7,6 +7,19 @@ import numpy as np
 '''
 
 
+def wang_balanced(L, allowed_error = 0.01):
+    '''
+    Wang et al. (2021) Theorem 3.5.
+    G is balanced if the maximum single value is an eigenvalue of G's Laplacian.
+    G must be connected.
+    '''
+    assert L.shape[0] == L.shape[1], "L is not a square matrix"
+    rho = sorted(np.linalg.svd( np.abs(L), compute_uv=False))[-1]
+    eigs = sorted(np.linalg.eigvals(L))[-1]
+    close = True if any(np.abs(rho - e) <= allowed_error for e in eigs) else False
+    #print(f"close: {rho - eigs[-1]:.3f}" if close else f"not close: {rho - eigs[-1]}")
+    return True if close else False
+
 def maximum_balance(I):
     _, m = I.shape
     for k in range(m + 1):
@@ -15,22 +28,22 @@ def maximum_balance(I):
                 return k
     return m
 
-def RHO(L):
-    '''
-    |rho(|L|) - rho(L)|
-    '''
-    assert L.shape[0] == L.shape[1], f"L is not a square matrix"
-    abs_rho = mu.rho(np.abs(L))
-    rho = mu.rho(L)
-    return abs(abs_rho - rho)
-
-def SVD(M):
-    '''
-    |max_svd(|M|) - max_svd(M)|
-    '''
-    max_abs_svd = mu.max_svd(np.abs(M))
-    max_svd = mu.max_svd(M)
-    return abs(max_abs_svd - max_svd)
+#def RHO(L):
+#    '''
+#    |rho(|L|) - rho(L)|
+#    '''
+#    assert L.shape[0] == L.shape[1], f"L is not a square matrix"
+#    abs_rho = mu.rho(np.abs(L))
+#    rho = mu.rho(L)
+#    return abs(abs_rho - rho)
+#
+#def SVD(M):
+#    '''
+#    |max_svd(|M|) - max_svd(M)|
+#    '''
+#    max_abs_svd = mu.max_svd(np.abs(M))
+#    max_svd = mu.max_svd(M)
+#    return abs(max_abs_svd - max_svd)
 
 def incidence_to_abs_pairwise_adjacency(I):
     '''

@@ -132,7 +132,6 @@ def generate_hypergraphs(n, cardinalities=[2,3], increment=0.05, verbose=False):
     largest_number_of_possible_edges = sigmoid(n) if largest_number_of_possible_edges > sigmoid(n) \
             else largest_number_of_possible_edges
 
-    print(largest_number_of_possible_edges)
     Is = []
     roof = LARGEST_ANTAGONISM + increment
     rng = np.random.default_rng()

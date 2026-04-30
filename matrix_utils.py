@@ -1,4 +1,4 @@
-import signal, itertools, sys
+import sys, itertools
 import numpy as np
 import utils
 
@@ -6,9 +6,6 @@ import utils
     Matrices and some matrix algebra.
 '''
 
-'''
-    In use
-'''
 def square(B):
     return True if B.shape[0] == B.shape[1] else False
 
@@ -16,7 +13,6 @@ def get_E(A):
     assert isinstance(A, np.ndarray)
     E = np.sum(np.triu(np.abs(A), k=1) == 1)
     return E
-
 
 def negative_edge_ratio(A):
     '''
@@ -60,6 +56,14 @@ def negative_incidence_product_ratio(I):
         
     return diff / (same + diff)
 
+def Laplacian(A):
+    '''
+    Opposing Laplacian.
+    '''
+    assert (np.diag(A) == 0).all(), "Not an adjacency matrix"
+    assert square(A), "Not an adjacency matrix"
+
+    return np.diag(np.abs(A) @ np.ones(A.shape[0])) - A
 
 def rho(B, assert_psd=False):
     assert isinstance(B, np.ndarray)
@@ -78,15 +82,6 @@ def positive(B):
 def nonnegative(B):
     assert isinstance(B, np.ndarray)
     return (B >= 0).all()
-
-def Laplacian(A):
-    '''
-    Opposing Laplacian.
-    '''
-    assert (np.diag(A) == 0).all(), "Not an adjacency matrix"
-    assert square(A), "Not an adjacency matrix"
-
-    return np.diag(np.abs(A) @ np.ones(A.shape[0])) - A
 
 def absolute_bipartite_incidence_adjacency(I):
     '''
@@ -122,18 +117,27 @@ def positive_semidefinite(B):
     return True
 
 def irreducible(B):
-    return positive( _matrix_power_sum(B, 0, B.shape[0]-1) )
-
-def _matrix_power_sum(B, start, end):
-    assert start < end, "Start >= End"
-    assert isinstance(B, np.ndarray)
-    assert square(B), "Matrix not square"
-
+    '''
+    Checks irriducibility of nonnegative matrices.
+    If sum of M^k, k < n-1 is positive, the whole sum
+    must be positive.
+    '''
+    assert square(B)
+    assert nonnegative(B), f"{np.unique(B)}"
     n = B.shape[0]
-    S = np.zeros((n,n))
-    for k in range(start, end+1):
-        S += np.linalg.matrix_power(B, k)
-    return S
+
+    S = np.zeros((n, n), dtype=int)
+    P = np.eye(n, dtype=int)
+
+    # sum_{k = 0}^{n-1} 
+    S += P
+    for _ in range(1, B.shape[0]):
+        P = P @ B
+        S += P 
+        if positive(S):
+            return True
+
+    return False
 
 def normalized_pairwise_adjacency(A):
     assert (np.diag(A) == 0).all(), "Not an adjacency matrix"
@@ -146,7 +150,7 @@ def normalized_pairwise_adjacency(A):
         assert row_stochastic(np.abs(H)), "Not abs row stochastic"
         return H
     except np.linalg.LinAlgError:
-        print(f"Sys.exit(): Singular matrix?\n{np.diag(degree_matrix)}")
+        print(f"Sys.exit(): Singular matrix?")
         sys.exit()
 
 def row_stochastic(B):
@@ -155,55 +159,6 @@ def row_stochastic(B):
         return False
     return np.allclose(B @ np.ones(B.shape[1]), np.ones(B.shape[0]))
 
-'''
-    Not in use
-'''
-
-def matrix_power_sum(B, power):
-    return _matrix_power_sum(B, 1, power)
-
-def convergent(B):
-    return rho(B) < 1
-
-class Timeout(Exception):
-    pass
-def timeout_handler(signum, frame):
-    raise Timeout
-
-def primitive(A, limit=10):
-    '''
-    An algorithm only checking 'primitivety' using the definition
-    exists k in N s.t. A^k > 0
-    might never halt, hence the 'limit'
-    '''
-    signal.signal(signal.SIGALRM, timeout_handler)
-    signal.setitimer(signal.ITIMER_REAL, limit)
-    try:
-        k = 1
-        while True:
-            B = np.linalg.matrix_power(A,k)
-            if (B > 0).all():
-                return True
-            k += 1
-
-    except Timeout:
-        return False
-    finally:
-        signal.setitimer(signal.ITIMER_REAL, 0)
-
-def normal_algebraic_conflict(H):
-    '''
-    Algebraic conflict on the (normalized) adjacency matrix.
-    From Aref et al.
-    '''
-    assert (np.diag(H) == 0).all(), "Not an adjacency matrix"
-    assert row_stochastic(np.abs(H)), "Not abs row stochastic"
-
-    degrees = sorted((H != 0).astype(np.int64) @ np.ones(H.shape[0]))
-    d_max = (degrees[-1] + degrees[-2]) / 2
-
-    return 1 - (algebraic_conflict(H) / (d_max -1))
-
 def algebraic_conflict(H):
     '''
     Algebraic conflict on the (normalized) adjacency matrix.
@@ -211,15 +166,6 @@ def algebraic_conflict(H):
     assert (np.diag(H) == 0).all(), "Not an adjacency matrix"
     assert row_stochastic(np.abs(H)), "Not abs row stochastic"
     return 1 - rho(H)
-
-def normal_FI(H):
-    '''
-    From Aref et al.
-    '''
-    assert (np.diag(H) == 0).all(), "Not an adjacency matrix"
-    assert row_stochastic(np.abs(H)), "Not abs row stochastic"
-    number_of_edges = np.sum(np.triu( (H != 0).astype(np.int64) ))
-    return FI(H) / (number_of_edges)
 
 def FI(H):
     '''
@@ -232,4 +178,11 @@ def FI(H):
     fi = lambda S : np.ones(n) @ (np.abs(H) - (S @ H @ S)) @ np.ones(n)
     return min([fi(np.diag(s)) for s in itertools.product([-1,1], repeat=n)])
 
-
+def normal_FI(H):
+    '''
+    From Aref et al.
+    '''
+    assert (np.diag(H) == 0).all(), "Not an adjacency matrix"
+    assert row_stochastic(np.abs(H)), "Not abs row stochastic"
+    number_of_edges = np.sum(np.triu( (H != 0).astype(np.int64) ))
+    return FI(H) / (number_of_edges)

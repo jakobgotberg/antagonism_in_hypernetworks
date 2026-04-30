@@ -10,22 +10,6 @@ d_map = {D: 1,R:-1}
 r_map = {R: 1,D:-1}
 n_map = {R: 1,D: 1}
 
-def wang_degree_balance(L, allowed_error = 0.01):
-    '''
-    Wang et al. (2021) Theorem 3.5.
-    G is balanced if the maximum single value is an eigenvalue of G's Laplacian.
-    G must be connected.
-    '''
-    assert L.shape[0] == L.shape[1], "L is not a square matrix"
-    rho = sorted(np.linalg.svd( np.abs(L), compute_uv=False))[-1]
-    eigs = sorted(np.linalg.eigvals(L))[-1]
-    close = True if any(np.abs(rho - e) <= allowed_error for e in eigs) else False
-    print(f"close: {rho - eigs[-1]:.3f}" if close else f"not close: {rho - eigs[-1]}")
-
-def wang_laplacian(dataset:str, reduced=False):
-    assert dataset == "house committees" or dataset == "senate committees" or dataset == "senate bills"
-    M = incidence(dataset, reduced, wang_incidence=True)
-    return M.T @ M
 
 
 def wang_incidence(dataset:str, reduced=False):
@@ -33,6 +17,10 @@ def wang_incidence(dataset:str, reduced=False):
     M = incidence(dataset, reduced, wang_incidence=True)
     return M
 
+def wang_laplacian(dataset:str, reduced=False):
+    assert dataset == "house committees" or dataset == "senate committees" or dataset == "senate bills"
+    M = incidence(dataset, reduced, wang_incidence=True)
+    return M.T @ M
 
 def incidence(dataset:str, reduced=False, wang_incidence=False):
     '''
@@ -61,7 +49,7 @@ def incidence(dataset:str, reduced=False, wang_incidence=False):
         c = T(m,h,e)
         columns.append(c)
 
-    I = np.array(columns).astype(np.int8).T
+    I = np.array(columns).astype(np.int64).T
 
     assert np.unique(I).tolist() == [-1,0,1]
     for ix, e in enumerate(E):
